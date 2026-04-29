@@ -1,4 +1,31 @@
 <?php
+session_start();
+include "../config/database.php";
+
+if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$totalMahasiswa = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM mahasiswa"));
+$totalDosen = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM dosen_pa"));
+$totalKriteria = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM kriteria"));
+
+$logAktivitas = mysqli_query($conn, "
+    SELECT l.*, u.nama_lengkap
+    FROM log_aktivitas l
+    LEFT JOIN user u ON l.id_user = u.id_user
+    ORDER BY l.tanggal DESC
+    LIMIT 10
+");
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Admin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
