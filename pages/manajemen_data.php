@@ -1,4 +1,50 @@
 <?php
+session_start();
+include "../config/database.php";
+
+if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
+$role = isset($_GET['role']) ? $_GET['role'] : '';
+
+$where = "WHERE 1=1";
+
+if ($keyword != '') {
+    $where .= " AND (username LIKE '%$keyword%' OR nama_lengkap LIKE '%$keyword%')";
+}
+
+if ($role != '') {
+    $where .= " AND role='$role'";
+}
+
+$userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DESC");
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Manajemen Data</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+<div class="app-layout">
+    <aside class="sidebar">
+        <h2 class="sidebar-title">SPK Mahasiswa</h2>
+
+        <nav class="nav-menu">
+            <a href="dashboard_admin.php" class="nav-link">Dashboard</a>
+            <a href="manajemen_data.php" class="nav-link active">Manajemen Data</a>
+            <a href="konfigurasi_kriteria.php" class="nav-link">Konfigurasi Kriteria</a>
+            <a href="../logout.php" class="nav-link logout-link">Logout</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
         <header class="topbar">
             <div>
                 <h3>Manajemen Data</h3>

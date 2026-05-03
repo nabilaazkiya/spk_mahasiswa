@@ -74,20 +74,19 @@ $logAktivitas = mysqli_query($conn, "
 
             <table class="data-table">
                 <thead>
-                    <tr>
-                        <th>No</th>
-                        <th>Admin</th>
+                    <tr>                  
                         <th>Aksi</th>
                         <th>Tanggal</th>
+                        <th>Oleh</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php $no = 1; while ($log = mysqli_fetch_assoc($logAktivitas)) { ?>
                     <tr>
                         <td><?php echo $no++; ?></td>
-                        <td><?php echo $log['nama_lengkap'] ?? '-'; ?></td>
                         <td><?php echo $log['aksi']; ?></td>
                         <td><?php echo $log['tanggal']; ?></td>
+                        <td><?php echo $log['nama_lengkap'] ?? '-'; ?></td>                 
                     </tr>
                     <?php } ?>
                 </tbody>

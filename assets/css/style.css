@@ -1,7 +1,25 @@
-.login-body {
+/* =========================================================
+    SEMUA HALAMAN
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
     margin: 0;
-    min-height: 100vh;
     font-family: Arial, sans-serif;
+    background: #f3f6fb;
+    color: #111827;
+}
+
+
+/* =========================================================
+   HALAMAN LOGIN
+========================================================= */
+
+.login-body {
+    min-height: 100vh;
     background: #e9eef5;
     display: flex;
     justify-content: center;
@@ -11,9 +29,9 @@
 .login-card {
     width: 360px;
     background: white;
-    padding: 35px;
+    padding: 28px 26px 22px;
     border-radius: 18px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
     text-align: center;
 }
 
@@ -39,13 +57,6 @@
     margin-bottom: 15px;
 }
 
-.form-input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-}
-
 .forgot-link {
     display: block;
     text-align: right;
@@ -55,21 +66,15 @@
     text-decoration: none;
 }
 
-.btn-primary {
-    width: 100%;
-    padding: 12px;
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-}
+
+/* =========================================================
+    LAYOUT UTAMA SETELAH LOGIN
+========================================================= */
 
 .app-layout {
     display: flex;
     min-height: 100vh;
-    background: #f3f4f6;
-    font-family: Arial, sans-serif;
+    background: #f3f6fb;
 }
 
 .sidebar {
@@ -103,25 +108,146 @@
     color: white;
 }
 
+.logout-link {
+    margin-top: 20px;
+}
+
 .main-content {
     flex: 1;
-    padding: 25px;
+    padding: 30px;
+    background: #f3f6fb;
 }
 
 .topbar {
     background: white;
-    padding: 18px;
-    border-radius: 14px;
+    padding: 20px 25px;
+    border-radius: 16px;
     margin-bottom: 20px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
 }
+
+.topbar h3 {
+    margin: 0 0 8px 0;
+}
+
+.topbar p {
+    margin: 0;
+    color: #6b7280;
+}
+
+.user-info {
+    font-size: 14px;
+    color: #111827;
+}
+
+
+/* =========================================================
+    BUTTON UMUM
+   ========================================================= */
+
+.btn-primary {
+    padding: 12px 18px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-secondary {
+    padding: 12px 18px;
+    background: #111827;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.btn-import {
+    padding: 12px 18px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.btn-detail {
+    padding: 8px 12px;
+    background: #111827;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   FORM, INPUT, SELECT:
+   - login
+   - manajemen data
+   - konfigurasi kriteria
+   - monitoring
+========================================================= */
+
+.form-input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+
+.search-input {
+    padding: 10px;
+    min-width: 240px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+
+.filter-select {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+
+
+/* =========================================================
+   CARD / SECTION UMUM
+========================================================= */
 
 .content-section {
     background: white;
-    padding: 20px;
-    border-radius: 14px;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
 }
+
+.section-header {
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+
+/* =========================================================
+   DASHBOARD ADMIN
+========================================================= */
+
+.admin-grid {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+
+/* =========================================================
+   DASHBOARD 
+========================================================= */
 
 .summary-grid {
     display: grid;
@@ -172,11 +298,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 14px;
-}
-
-* {
-    margin-bottom: 15px;
-    font-size: 14px;
+    color: #6b7280;
 }
 
 .two-column-section {
@@ -185,22 +307,115 @@
     gap: 20px;
 }
 
-.chart-placeholder {
-    height: 280px;
-    background: #f9fafb;
-    border: 2px dashed #d1d5db;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 14px;
-    color: #6b7280;
-}
-
 .analysis-box {
     background: #f9fafb;
     border-radius: 14px;
     padding: 18px;
 }
+
+
+/* =========================================================
+   TABEL:
+   - dashboard admin
+   - manajemen data
+   - konfigurasi kriteria
+   - monitoring
+========================================================= */
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.data-table th {
+    background: #f3f4f6;
+    text-align: left;
+    padding: 12px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.data-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 6px 10px;
+    background: #eef2ff;
+    color: #3730a3;
+    border-radius: 999px;
+    font-size: 12px;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 6px 10px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: 999px;
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   HALAMAN MANAJEMEN DATA
+========================================================= */
+
+.table-toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.sync-info {
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.action-edit {
+    color: #2563eb;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.action-delete {
+    color: #dc2626;
+    text-decoration: none;
+}
+
+
+/* =========================================================
+   KONFIGURASI KRITERIA
+========================================================= */
+
+.weight-info {
+    margin-top: 20px;
+    padding: 14px;
+    background: #eef2ff;
+    color: #3730a3;
+    border-radius: 10px;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bobot-input {
+    max-width: 120px;
+}
+
+
+/* =========================================================
+   DETAIL MAHASISWA
+========================================================= */
 
 .profile-card {
     background: white;
@@ -210,17 +425,21 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
-.weight-info {
-    margin: 15px 0;
-    padding: 12px;
-    background: #eef2ff;
-    color: #3730a3;
-    border-radius: 10px;
+.profile-card h2 {
+    margin: 0 0 10px 0;
 }
+
+.profile-card p {
+    margin: 0 0 10px 0;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
 
 @media (max-width: 900px) {
     .sidebar {
-        position: static;
         width: 100%;
     }
 
@@ -228,13 +447,22 @@
         flex-direction: column;
     }
 
-    .main-content {
-        margin-left: 0;
-    }
-
     .summary-grid,
     .admin-grid,
     .two-column-section {
         grid-template-columns: 1fr;
+    }
+
+    .table-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-input,
+    .filter-select,
+    .btn-primary,
+    .btn-secondary,
+    .btn-import {
+        width: 100%;
     }
 }
