@@ -8,8 +8,8 @@
 <body class="login-body">
 
     <div class="login-card">
-        <div class="logo-circle">LOGO</div>
-        <h2 class="login-title">SPK Prioritas Mahasiswa</h2>
+        <img src="assets/img/logo psti.jpg" class="logo-img">
+        <h2 class="login-title">Prioritas Mahasiswa Bimbingan</h2>
 
         <form action="proses/login_proses.php" method="POST" class="login-form">
             <div class="form-group">

@@ -20,27 +20,29 @@ body {
 
 .login-body {
     min-height: 100vh;
-    background: #e9eef5;
+    background-image: url("../img/bg.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .login-card {
-    width: 360px;
+    width: 420px;
+    height: 470px;
     background: white;
-    padding: 28px 26px 22px;
+    padding: 28px 32px 28px;
     border-radius: 18px;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
     text-align: center;
 }
 
-.logo-circle {
-    width: 75px;
-    height: 75px;
-    background: #1f2937;
-    color: white;
-    border-radius: 50%;
+.logo-img {
+    width: 90px;
+    height: auto;
+    display: block;
     margin: 0 auto 15px;
     display: flex;
     align-items: center;
@@ -64,6 +66,17 @@ body {
     margin-bottom: 20px;
     color: #2563eb;
     text-decoration: none;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 
@@ -215,6 +228,7 @@ body {
     border-radius: 8px;
     border: 1px solid #d1d5db;
     background: #f9fafb;
+    /* margin-right: 8px; */
 }
 
 
