@@ -835,6 +835,182 @@ body {
     background: #2563eb;
 }
 
+/* =========================================================
+   MONITORING MAHASISWA DPA
+========================================================= */
+
+.monitor-filter-card {
+    background: white;
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 14px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sort-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: #111;
+}
+
+.sort-select-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.sort-select {
+    width: 120px;
+    border: none;
+    background: #08002b;
+    color: white;
+    padding: 7px 34px 7px 18px;
+    border-radius: 16px;
+    font-size: 11px;
+    cursor: pointer;
+
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.sort-select-wrapper::after {
+    content: "▾";
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: white;
+
+    font-size: 18px;   /* ukuran panah diperbesar */
+    font-weight: bold;
+
+    pointer-events: none;
+}
+
+.search-area {
+    width: 360px;
+    height: 30px;
+    background: #eeeeee;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+}
+
+.monitor-search {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+}
+
+.search-area i {
+    color: #999;
+    font-size: 12px;
+}
+
+.monitoring-content {
+    min-height: 420px;
+}
+
+.monitoring-title h2 {
+    margin: 0;
+    font-size: 22px;
+    color: #08002b;
+}
+
+.monitoring-title p {
+    margin: 4px 0 18px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #111;
+}
+
+.monitoring-table th,
+.monitoring-table td {
+    font-size: 12px;
+    padding: 10px 12px;
+}
+
+.status-pill {
+    display: inline-block;
+    min-width: 82px;
+    text-align: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.status-baik {
+    background: #22c55e;
+    color: white;
+}
+
+.status-aman {
+    background: #a3ff7a;
+    color: #111;
+}
+
+.status-waspada {
+    background: #ffe082;
+    color: #111;
+}
+
+.status-kritis {
+    background: #ff4d5a;
+    color: white;
+}
+
+.monitoring-table .btn-detail {
+    background: #08002b;
+    color: white;
+    border-radius: 14px;
+    padding: 6px 18px;
+    font-size: 11px;
+    text-decoration: none;
+}
+
+.monitoring-table .btn-detail:hover {
+    background: #16004a;
+}
+
+.table-footer {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #777;
+}
+
+.table-footer button {
+    border: none;
+    background: #777;
+    color: white;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pagination span {
+    color: #111;
+    font-weight: bold;
+}
+
 
 /* =========================================================
    DETAIL MAHASISWA
