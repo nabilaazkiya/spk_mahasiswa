@@ -29,69 +29,84 @@ $logAktivitas = mysqli_query($conn, "
 </head>
 <body>
 
-<div class="app-layout">
-    <aside class="sidebar">
-        <h2 class="sidebar-title">SPK Mahasiswa</h2>
+<div class="dashboard-wrapper">
+
+    <!-- SECTION 1: SIDEBAR -->
+    <aside class="section-sidebar">
+        <div class="logo-area">
+            <img src="../assets/img/logo_psti.jpg" class="sidebar-logo" alt="Logo PSTI">
+            <span class="logo-text">Prioritas Mahasiswa<br>Bimbingan</span>
+        </div>
 
         <nav class="nav-menu">
             <a href="dashboard_admin.php" class="nav-link active">Dashboard</a>
             <a href="manajemen_data.php" class="nav-link">Manajemen Data</a>
             <a href="konfigurasi_kriteria.php" class="nav-link">Konfigurasi Kriteria</a>
-            <a href="../logout.php" class="nav-link logout-link">Logout</a>
         </nav>
+
+        <a href="../logout.php" class="logout-button">LOGOUT</a>
     </aside>
 
-    <main class="main-content">
-        <header class="topbar">
-            <div>
-                <h3>Dashboard Admin</h3>
-                <p>Ringkasan operasional sistem</p>
-            </div>
-            <span class="user-info"><?php echo $_SESSION['nama_lengkap']; ?></span>
-        </header>
+    <!-- AREA KANAN -->
+    <main class="dashboard-main">
 
-        <section class="summary-grid admin-grid">
-            <div class="summary-card">
-                <h4>Total Mahasiswa</h4>
-                <p><?php echo $totalMahasiswa['total']; ?></p>
-            </div>
-
-            <div class="summary-card">
-                <h4>Total Dosen PA</h4>
-                <p><?php echo $totalDosen['total']; ?></p>
-            </div>
-
-            <div class="summary-card">
-                <h4>Total Kriteria</h4>
-                <p><?php echo $totalKriteria['total']; ?></p>
+        <!-- SECTION 2: TOPBAR -->
+        <section class="section-topbar">
+            <h3>Dashboard</h3>
+            <div class="admin-info">
+                <span><?php echo $_SESSION['nama_lengkap']; ?></span>
+                <div class="admin-avatar"></div>
             </div>
         </section>
 
-        <section class="content-section">
-            <div class="section-header">
-                <h3>Log Aktivitas Terakhir</h3>
+        <!-- SECTION 3: SUMMARY CARD -->
+        <section class="section-summary">
+            <div class="summary-card danger">
+                <div class="card-icon">●</div>
+                <h4>Total Mahasiswa</h4>
+                <p><?php echo $totalMahasiswa['total']; ?></p>
+                <small>Mahasiswa</small>
             </div>
+
+            <div class="summary-card warning">
+                <div class="card-icon">●</div>
+                <h4>Total Dosen PA</h4>
+                <p><?php echo $totalDosen['total']; ?></p>
+                <small>Dosen PA</small>
+            </div>
+
+            <div class="summary-card success">
+                <div class="card-icon">●</div>
+                <h4>Total Kriteria</h4>
+                <p><?php echo $totalKriteria['total']; ?></p>
+                <small>Kriteria</small>
+            </div>
+        </section>
+
+        <!-- SECTION 4: LOG AKTIVITAS -->
+        <section class="section-log">
+            <h3>Log Aktivitas Terakhir</h3>
 
             <table class="data-table">
                 <thead>
-                    <tr>                  
+                    <tr>
                         <th>Aksi</th>
                         <th>Tanggal</th>
                         <th>Oleh</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php $no = 1; while ($log = mysqli_fetch_assoc($logAktivitas)) { ?>
+                    <?php while ($log = mysqli_fetch_assoc($logAktivitas)) { ?>
                     <tr>
-                        <td><?php echo $no++; ?></td>
                         <td><?php echo $log['aksi']; ?></td>
                         <td><?php echo $log['tanggal']; ?></td>
-                        <td><?php echo $log['nama_lengkap'] ?? '-'; ?></td>                 
+                        <td><?php echo $log['nama_lengkap'] ?? '-'; ?></td>
                     </tr>
                     <?php } ?>
                 </tbody>
             </table>
         </section>
+
     </main>
 </div>
 
