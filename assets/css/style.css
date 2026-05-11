@@ -651,7 +651,7 @@ body {
 }
 
 .btn-add,
-.btn-import {
+.btn-add-import {
     padding: 10px 18px;
     border: none;
     border-radius: 18px;
@@ -659,6 +659,8 @@ body {
     color: white;
     cursor: pointer;
     font-size: 12px;
+    text-decoration: none;
+    display: inline-block;
 }
 
 .sync-info {
@@ -707,6 +709,18 @@ body {
     font-size: 11px;
 }
 
+/* STATUS AKTIF */
+.status-aktif {
+    background: #1d8fff;
+    color: white;
+}
+
+/* STATUS NONAKTIF */
+.status-nonaktif {
+    background: #ff5b5b;
+    color: white;
+}
+
 .role-badge {
     display: inline-block;
     min-width: 78px;
@@ -746,6 +760,195 @@ body {
     font-size: 15px;
 }
 
+.table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    margin-bottom: 18px;
+}
+
+.btn-add,
+.btn-import-custom {
+    height: 38px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 18px;
+    background: #0d8cff;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    transition: 0.25s ease;
+}
+
+.btn-add:hover,
+.btn-import-custom:hover {
+    background: #36a3ff;
+}
+
+.filter-select {
+    height: 38px;
+    padding: 0 42px 0 16px;
+    border: 1px solid #08002b;
+    border-radius: 18px;
+    background-color: white;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* ===============================
+   ACTION EDIT / DELETE
+================================ */
+
+.action-edit,
+.action-delete {
+    text-decoration: none;
+    font-size: 14px;
+    margin-right: 12px;
+    transition: 0.25s ease;
+}
+
+.action-edit {
+    color: #0d8cff;
+}
+
+.action-edit:hover {
+    color: #004fc4;
+    transform: scale(1.15);
+}
+
+.action-delete {
+    color: #ff7f85;
+}
+
+.action-delete:hover {
+    color: #dc2626;
+    transform: scale(1.15);
+}
+
+/* ===============================
+   SECTION 1 & 2 TIDAK IKUT SCROLL
+================================ */
+
+.dashboard-wrapper {
+    height: 100vh;
+    overflow: hidden;
+}
+
+.section-sidebar {
+    height: calc(100vh - 20px);
+    position: sticky;
+    top: 10px;
+}
+
+.dashboard-main {
+    height: calc(100vh - 20px);
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.section-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+
+/* =========================================================
+   HALAMAN TAMBAH USER
+========================================================= */
+
+.user-form {
+    margin-top: 28px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 14px; 
+}
+
+.form-group label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #08002b;
+    margin-bottom: 10px;
+}
+
+.form-input,
+select.form-input {
+    width: 100%;
+    height: 48px;
+    border: 1px solid #d6dbe3;
+    border-radius: 10px;
+    padding: 0 18px;
+    font-size: 14px;
+    background: #f7f9fc;
+    outline: none;
+}
+
+/* KHUSUS SELECT */
+select.form-input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    padding-right: 50px; /* ruang panah */
+    
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2308002b' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 5.5l6 6 6-6' stroke='%2308002b' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+    background-repeat: no-repeat;
+
+    background-position: right 18px center; /* posisi panah */
+
+    background-size: 14px;
+}
+
+.form-input:focus {
+    border-color: #2f6bff;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(47,107,255,0.12);
+}
+
+/* BUTTON AREA */
+.form-action {
+    display: flex;
+    align-items: center;
+    gap: 14px; 
+    margin-top: 30px;
+}
+
+/* BUTTON KEMBALI */
+.btn-secondary {
+    background: #08002b;
+    color: white;
+    padding: 10px 22px;
+    border-radius: 14px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* BUTTON SIMPAN */
+.btn-add {
+    background: #1f80ff;
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-add:hover {
+    background: #006cff;
+}
 
 /* =========================================================
    KONFIGURASI KRITERIA
@@ -886,7 +1089,7 @@ body {
     transform: translateY(-50%);
     color: white;
 
-    font-size: 18px;   /* ukuran panah diperbesar */
+    font-size: 18px;   
     font-weight: bold;
 
     pointer-events: none;

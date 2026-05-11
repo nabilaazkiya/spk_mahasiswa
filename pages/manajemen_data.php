@@ -19,7 +19,7 @@ if ($keyword != '') {
 
 if ($role != '') {
     $roleSafe = mysqli_real_escape_string($conn, $role);
-    $where .= " AND role='$roleSafe'";
+    $where .= " AND role = '$roleSafe'";
 }
 
 $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DESC");
@@ -31,6 +31,7 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
     <meta charset="UTF-8">
     <title>Manajemen Data</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
 
@@ -71,18 +72,16 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
                 <h2>Daftar Pengguna & Manajemen Peran</h2>
             </div>
 
-            <form method="GET" class="table-toolbar">
-                <div class="search-wrapper">
-                    <input 
-                        type="text" 
-                        name="keyword" 
-                        class="search-input" 
-                        placeholder="Search" 
-                        value="<?php echo htmlspecialchars($keyword); ?>"
-                    >
-                </div>
+            <form method="GET" class="table-toolbar" enctype="multipart/form-data">
+                <input 
+                    type="text" 
+                    name="keyword" 
+                    class="search-input" 
+                    placeholder="Search" 
+                    value="<?php echo htmlspecialchars($keyword); ?>"
+                >
 
-                <select name="role" class="filter-select">
+                <select name="role" class="filter-select" onchange="this.form.submit()">
                     <option value="">Semua Peran</option>
                     <option value="admin" <?php if ($role == 'admin') echo 'selected'; ?>>Admin</option>
                     <option value="kaprodi" <?php if ($role == 'kaprodi') echo 'selected'; ?>>Kaprodi</option>
@@ -90,9 +89,19 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
                     <option value="mahasiswa" <?php if ($role == 'mahasiswa') echo 'selected'; ?>>Mahasiswa</option>
                 </select>
 
-                <button type="submit" class="btn-secondary">Filter</button>
-                <button type="button" class="btn-add">+ Tambah Pengguna Baru</button>
-                <button type="button" class="btn-import">Import dari Excel / CSV</button>
+                <a href="tambah_user.php" class="btn-add">+ Tambah Pengguna Baru</a>
+
+                <label for="fileImport" class="btn-add">
+                    Import dari Excel / CSV
+                </label>
+
+                <input 
+                    type="file" 
+                    id="fileImport" 
+                    name="file_import" 
+                    accept=".csv,.xls,.xlsx" 
+                    hidden
+                >
             </form>
 
             <div class="sync-info">
@@ -124,14 +133,28 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
                             </span>
                         </td>
                         <td>
-                            <span class="status-badge">
+                            <span class="status-badge <?php echo $row['status_sia'] == 'nonaktif' ? 'status-nonaktif' : 'status-aktif'; ?>">
                                 <?php echo $row['status_sia']; ?>
                             </span>
                         </td>
                         <td>N/A</td>
                         <td>
-                            <a href="#" class="action-edit">✎</a>
-                            <a href="#" class="action-delete">🗑</a>
+                            <a 
+                                href="edit_user.php?id=<?php echo $row['id_user']; ?>" 
+                                class="action-edit"
+                                title="Edit"
+                            >
+                                <i class="fa-solid fa-pen"></i>
+                            </a>
+
+                            <a 
+                                href="../proses/hapus_user.php?id=<?php echo $row['id_user']; ?>" 
+                                class="action-delete"
+                                title="Hapus"
+                                onclick="return confirm('Yakin ingin menghapus pengguna ini?')"
+                            >
+                                <i class="fa-solid fa-trash"></i>
+                            </a>
                         </td>
                     </tr>
                     <?php } ?>
