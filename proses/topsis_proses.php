@@ -4,7 +4,7 @@
         INSERT INTO solusi_ideal (id_kriteria, nilai_positif, nilai_negatif)
         VALUES ('$idKriteria', '{$solusiPositif[$idKriteria]}', '{$solusiNegatif[$idKriteria]}')
     ");
-}
+
 
 $hasilTopsis = [];
 

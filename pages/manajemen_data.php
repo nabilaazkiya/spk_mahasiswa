@@ -23,6 +23,7 @@ if ($role != '') {
 }
 
 $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DESC");
+$akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik ORDER BY id_data DESC");
 ?>
 
 <!DOCTYPE html>
@@ -36,8 +37,6 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
 <body>
 
 <div class="dashboard-wrapper">
-
-    <!-- SECTION 1: SIDEBAR -->
     <aside class="section-sidebar">
         <div class="logo-area">
             <img src="../assets/img/logo_psti.jpg" class="sidebar-logo" alt="Logo PSTI">
@@ -53,56 +52,53 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
         <a href="../logout.php" class="logout-button">LOGOUT</a>
     </aside>
 
-    <!-- AREA KANAN -->
     <main class="dashboard-main">
-
-        <!-- SECTION 2: TOPBAR -->
         <section class="section-topbar">
             <h3>Dashboard</h3>
-
             <div class="admin-info">
                 <span><?php echo $_SESSION['nama_lengkap']; ?></span>
                 <div class="admin-avatar"></div>
             </div>
         </section>
 
-        <!-- SECTION 3: CONTENT -->
         <section class="section-content">
             <div class="section-title">
                 <h2>Daftar Pengguna & Manajemen Peran</h2>
             </div>
 
-            <form method="GET" class="table-toolbar" enctype="multipart/form-data">
-                <input 
-                    type="text" 
-                    name="keyword" 
-                    class="search-input" 
-                    placeholder="Search" 
-                    value="<?php echo htmlspecialchars($keyword); ?>"
-                >
+            <div class="table-toolbar">
+                <form method="GET" action="manajemen_data.php" style="display:flex; gap:10px; align-items:center;">
+                    <input 
+                        type="text" 
+                        name="keyword" 
+                        class="search-input" 
+                        placeholder="Search" 
+                        value="<?php echo htmlspecialchars($keyword); ?>"
+                    >
 
-                <select name="role" class="filter-select" onchange="this.form.submit()">
-                    <option value="">Semua Peran</option>
-                    <option value="admin" <?php if ($role == 'admin') echo 'selected'; ?>>Admin</option>
-                    <option value="kaprodi" <?php if ($role == 'kaprodi') echo 'selected'; ?>>Kaprodi</option>
-                    <option value="dpa" <?php if ($role == 'dpa') echo 'selected'; ?>>DPA</option>
-                    <option value="mahasiswa" <?php if ($role == 'mahasiswa') echo 'selected'; ?>>Mahasiswa</option>
-                </select>
+                    <select name="role" class="filter-select" onchange="this.form.submit()">
+                        <option value="">Semua Peran</option>
+                        <option value="admin" <?php if ($role == 'admin') echo 'selected'; ?>>Admin</option>
+                        <option value="kaprodi" <?php if ($role == 'kaprodi') echo 'selected'; ?>>Kaprodi</option>
+                        <option value="dpa" <?php if ($role == 'dpa') echo 'selected'; ?>>DPA</option>
+                        <option value="mahasiswa" <?php if ($role == 'mahasiswa') echo 'selected'; ?>>Mahasiswa</option>
+                    </select>
+                </form>
 
                 <a href="tambah_user.php" class="btn-add">+ Tambah Pengguna Baru</a>
 
-                <label for="fileImport" class="btn-add">
-                    Import dari Excel / CSV
-                </label>
-
-                <input 
-                    type="file" 
-                    id="fileImport" 
-                    name="file_import" 
-                    accept=".csv,.xls,.xlsx" 
-                    hidden
-                >
-            </form>
+                <form method="POST" action="../proses/input_data.php" enctype="multipart/form-data">
+                    <label for="fileImport" class="btn-add">Import dari CSV</label>
+                    <input 
+                        type="file" 
+                        id="fileImport" 
+                        name="file_import" 
+                        accept=".csv" 
+                        hidden 
+                        required
+                    >
+                </form>
+            </div>
 
             <div class="sync-info">
                 <span>Sumber : Data SIA Terintegrasi (Terpisah)</span>
@@ -121,6 +117,7 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
                         <th>Aksi</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     <?php $no = 1; while ($row = mysqli_fetch_assoc($userQuery)) { ?>
                     <tr>
@@ -139,20 +136,11 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
                         </td>
                         <td>N/A</td>
                         <td>
-                            <a 
-                                href="edit_user.php?id=<?php echo $row['id_user']; ?>" 
-                                class="action-edit"
-                                title="Edit"
-                            >
+                            <a href="edit_user.php?id=<?php echo $row['id_user']; ?>" class="action-edit" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </a>
 
-                            <a 
-                                href="../proses/hapus_user.php?id=<?php echo $row['id_user']; ?>" 
-                                class="action-delete"
-                                title="Hapus"
-                                onclick="return confirm('Yakin ingin menghapus pengguna ini?')"
-                            >
+                            <a href="../proses/hapus_user.php?id=<?php echo $row['id_user']; ?>" class="action-delete" title="Hapus" onclick="return confirm('Yakin ingin menghapus pengguna ini?')">
                                 <i class="fa-solid fa-trash"></i>
                             </a>
                         </td>
@@ -160,10 +148,64 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DES
                     <?php } ?>
                 </tbody>
             </table>
-        </section>
 
+            <div style="margin-top:40px;">
+                <h2>Data Akademik Mahasiswa</h2>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>NIM</th>
+                            <th>Nama Mahasiswa</th>
+                            <th>Dosen PA</th>
+                            <th>Semester</th>
+                            <th>IPK</th>
+                            <th>Skor TOEFL</th>
+                            <th>Jumlah Mengulang</th>
+                            <th>SKS Lulus</th>
+                            <th>Sisa Masa Studi</th>
+                            <th>Jalur Masuk</th>
+                            <th>Absensi</th>
+                            <th>SKS Diambil</th>
+                            <th>SKS Nilai Kurang C</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <?php $noAkademik = 1; while ($akademik = mysqli_fetch_assoc($akademikQuery)) { ?>
+                        <tr>
+                            <td><?php echo $noAkademik++; ?></td>
+                            <td><?php echo $akademik['nim']; ?></td>
+                            <td><?php echo $akademik['nama_mahasiswa']; ?></td>
+                            <td><?php echo $akademik['dosen_pa']; ?></td>
+                            <td><?php echo $akademik['semester']; ?></td>
+                            <td><?php echo $akademik['ipk']; ?></td>
+                            <td><?php echo $akademik['skor_toefl']; ?></td>
+                            <td><?php echo $akademik['jml_mengulang']; ?></td>
+                            <td><?php echo $akademik['sks_lulus']; ?></td>
+                            <td><?php echo $akademik['sisa_masa_studi']; ?></td>
+                            <td><?php echo $akademik['jalur_masuk']; ?></td>
+                            <td><?php echo $akademik['absensi']; ?></td>
+                            <td><?php echo $akademik['sks_diambil']; ?></td>
+                            <td><?php echo $akademik['sks_nilai_kurang_c']; ?></td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+
+        </section>
     </main>
 </div>
+
+<script>
+document.getElementById('fileImport').addEventListener('change', function() {
+    if (this.files.length > 0) {
+        this.form.submit();
+    }
+});
+</script>
 
 </body>
 </html>
