@@ -10,20 +10,35 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 $keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
 $role = isset($_GET['role']) ? $_GET['role'] : '';
 
-$where = "WHERE 1=1";
+$whereUser = "WHERE 1=1";
+$whereAkademik = "WHERE 1=1";
 
 if ($keyword != '') {
     $keywordSafe = mysqli_real_escape_string($conn, $keyword);
-    $where .= " AND (username LIKE '%$keywordSafe%' OR nama_lengkap LIKE '%$keywordSafe%')";
+
+    $whereUser .= " AND (
+        username LIKE '%$keywordSafe%' 
+        OR nama_lengkap LIKE '%$keywordSafe%'
+    )";
+
+    $keywordNoSpace = str_replace(' ', '', $keywordSafe);
+
+    $whereAkademik .= " AND (
+        nim LIKE '%$keywordSafe%' 
+        OR nama_mahasiswa LIKE '%$keywordSafe%'
+        OR REPLACE(nama_mahasiswa, ' ', '') LIKE '%$keywordNoSpace%'
+        OR dosen_pa LIKE '%$keywordSafe%'
+    )";
 }
 
 if ($role != '') {
     $roleSafe = mysqli_real_escape_string($conn, $role);
-    $where .= " AND role = '$roleSafe'";
+    $whereUser .= " AND role = '$roleSafe'";
 }
 
-$userQuery = mysqli_query($conn, "SELECT * FROM user $where ORDER BY id_user DESC");
-$akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik ORDER BY id_data DESC");
+$userQuery = mysqli_query($conn, "SELECT * FROM user $whereUser ORDER BY id_user DESC");
+
+$akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik ORDER BY id_data DESC");
 ?>
 
 <!DOCTYPE html>

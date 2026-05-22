@@ -7,12 +7,12 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-$id_user = mysqli_real_escape_string($conn, $_POST['id_user']);
-$username = mysqli_real_escape_string($conn, $_POST['username']);
-$password = $_POST['password'];
-$nama_lengkap = mysqli_real_escape_string($conn, $_POST['nama_lengkap']);
-$status_sia = mysqli_real_escape_string($conn, $_POST['status_sia']);
-$role = mysqli_real_escape_string($conn, $_POST['role']);
+$id_user       = mysqli_real_escape_string($conn, $_POST['id_user']);
+$username      = mysqli_real_escape_string($conn, $_POST['username']);
+$password      = $_POST['password'];
+$nama_lengkap  = mysqli_real_escape_string($conn, $_POST['nama_lengkap']);
+$status_sia    = mysqli_real_escape_string($conn, $_POST['status_sia']);
+$role          = mysqli_real_escape_string($conn, $_POST['role']);
 
 $cekUsername = mysqli_query($conn, "
     SELECT * FROM user 
@@ -54,13 +54,30 @@ if ($password != '') {
 }
 
 if ($query) {
+
+    $idAdmin = $_SESSION['id_user'];
+
+    mysqli_query($conn, "
+        INSERT INTO log_aktivitas (
+            aksi,
+            tanggal,
+            id_user
+        ) VALUES (
+            'Mengedit pengguna: $nama_lengkap',
+            NOW(),
+            '$idAdmin'
+        )
+    ");
+
     echo "
         <script>
             alert('Data pengguna berhasil diperbarui!');
             window.location='../pages/manajemen_data.php';
         </script>
     ";
+
 } else {
+
     echo "
         <script>
             alert('Gagal memperbarui data pengguna!');

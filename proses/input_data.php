@@ -44,23 +44,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     while (($data = fgetcsv($file, 10000, ",")) !== FALSE) {
 
-        // Skip header
+
         if ($baris == 0) {
             $baris++;
             continue;
         }
 
-        // Skip baris kosong
+
         if (count($data) < 16) {
             $gagal++;
             $baris++;
             continue;
         }
 
-        $semester            = mysqli_real_escape_string($conn, $data[1]);
+        
         $nama_mahasiswa      = mysqli_real_escape_string($conn, $data[2]);
         $nim                 = mysqli_real_escape_string($conn, $data[3]);
         $dosen_pa            = mysqli_real_escape_string($conn, $data[4]);
+        $semester            = mysqli_real_escape_string($conn, $data[5]);
 
         $sks_diambil         = mysqli_real_escape_string($conn, $data[6]);
         $ipk                 = mysqli_real_escape_string($conn, $data[7]);
@@ -77,7 +78,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             continue;
         }
 
-        $cek = mysqli_query($conn, "SELECT * FROM data_akademik WHERE nim='$nim'");
+        // Simpan semua import ke riwayat
+        mysqli_query($conn, "
+            INSERT INTO riwayat_akademik (
+                nim,
+                nama_mahasiswa,
+                dosen_pa,
+                semester,
+                ipk,
+                skor_toefl,
+                jml_mengulang,
+                sks_lulus,
+                sisa_masa_studi,
+                jalur_masuk,
+                absensi,
+                sks_diambil,
+                sks_nilai_kurang_c
+            ) VALUES (
+                '$nim',
+                '$nama_mahasiswa',
+                '$dosen_pa',
+                '$semester',
+                '$ipk',
+                '$skor_toefl',
+                '$jml_mengulang',
+                '$sks_lulus',
+                '$sisa_masa_studi',
+                '$jalur_masuk',
+                '$absensi',
+                '$sks_diambil',
+                '$sks_nilai_kurang_c'
+            )
+        ");
+
+        // Cek data terbaru
+        $cek = mysqli_query($conn, "
+            SELECT * FROM data_akademik 
+            WHERE nim='$nim'
+        ");
 
         if (mysqli_num_rows($cek) > 0) {
 
@@ -145,6 +183,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($file) {
         fclose($file);
     }
+
+    $idAdmin = $_SESSION['id_user'];
+
+    mysqli_query($conn, "
+        INSERT INTO log_aktivitas (
+            aksi,
+            tanggal,
+            id_user
+        ) VALUES (
+            'Import data akademik mahasiswa',
+            NOW(),
+            '$idAdmin'
+        )
+    ");
 
     echo "
     <script>

@@ -59,6 +59,20 @@ $query = mysqli_query($conn, "
 /* HASIL */
 if ($query) {
 
+    $idAdmin = $_SESSION['id_user'];
+
+    mysqli_query($conn, "
+        INSERT INTO log_aktivitas (
+            aksi,
+            tanggal,
+            id_user
+        ) VALUES (
+            'Menambahkan pengguna baru: $nama_lengkap sebagai $role',
+            NOW(),
+            '$idAdmin'
+        )
+    ");
+
     echo "
         <script>
             alert('Pengguna berhasil ditambahkan!');

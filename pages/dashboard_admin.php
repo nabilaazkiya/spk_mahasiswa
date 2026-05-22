@@ -7,9 +7,22 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-$totalMahasiswa = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM mahasiswa"));
-$totalDosen = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM dosen_pa"));
-$totalKriteria = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM kriteria"));
+$totalMahasiswa = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT COUNT(DISTINCT nim) AS total 
+    FROM data_akademik
+"));
+
+$totalDosen = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT COUNT(DISTINCT dosen_pa) AS total 
+    FROM data_akademik 
+    WHERE dosen_pa IS NOT NULL 
+    AND dosen_pa != ''
+"));
+
+$totalKriteria = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT COUNT(*) AS total 
+    FROM kriteria
+"));
 
 $logAktivitas = mysqli_query($conn, "
     SELECT l.*, u.nama_lengkap
@@ -95,14 +108,37 @@ $logAktivitas = mysqli_query($conn, "
                         <th>Oleh</th>
                     </tr>
                 </thead>
+
                 <tbody>
-                    <?php while ($log = mysqli_fetch_assoc($logAktivitas)) { ?>
-                    <tr>
-                        <td><?php echo $log['aksi']; ?></td>
-                        <td><?php echo $log['tanggal']; ?></td>
-                        <td><?php echo $log['nama_lengkap'] ?? '-'; ?></td>
-                    </tr>
+
+                    <?php if (mysqli_num_rows($logAktivitas) > 0) { ?>
+
+                        <?php while ($log = mysqli_fetch_assoc($logAktivitas)) { ?>
+
+                        <tr>
+                            <td><?php echo $log['aksi']; ?></td>
+
+                            <td>
+                                <?php echo date('d-m-Y H:i', strtotime($log['tanggal'])); ?>
+                            </td>
+
+                            <td>
+                                <?php echo !empty($log['nama_lengkap']) ? $log['nama_lengkap'] : 'System'; ?>
+                            </td>
+                        </tr>
+
+                        <?php } ?>
+
+                    <?php } else { ?>
+
+                        <tr>
+                            <td colspan="3" style="text-align:center;">
+                                Belum ada aktivitas
+                            </td>
+                        </tr>
+
                     <?php } ?>
+
                 </tbody>
             </table>
         </section>
