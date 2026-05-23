@@ -9,14 +9,17 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 
 /* TAMBAH KRITERIA */
 if (isset($_POST['tambah'])) {
-    $kode = mysqli_real_escape_string($conn, $_POST['kode_kriteria']);
-    $nama = mysqli_real_escape_string($conn, $_POST['nama_kriteria']);
-    $jenis = mysqli_real_escape_string($conn, $_POST['jenis']);
-    $bobot = mysqli_real_escape_string($conn, $_POST['bobot']);
+    $kode       = mysqli_real_escape_string($conn, $_POST['kode_kriteria']);
+    $nama       = mysqli_real_escape_string($conn, $_POST['nama_kriteria']);
+    $kolom_data = mysqli_real_escape_string($conn, $_POST['kolom_data']);
+    $jenis      = mysqli_real_escape_string($conn, $_POST['jenis']);
+    $bobot      = mysqli_real_escape_string($conn, $_POST['bobot']);
 
     mysqli_query($conn, "
-        INSERT INTO kriteria (kode_kriteria, nama_kriteria, jenis, bobot)
-        VALUES ('$kode', '$nama', '$jenis', '$bobot')
+        INSERT INTO kriteria 
+        (kode_kriteria, nama_kriteria, kolom_data, jenis, bobot)
+        VALUES 
+        ('$kode', '$nama', '$kolom_data', '$jenis', '$bobot')
     ");
 
     mysqli_query($conn, "
@@ -28,10 +31,38 @@ if (isset($_POST['tambah'])) {
     exit;
 }
 
-/* SIMPAN / UPDATE BOBOT */
+/* EDIT KRITERIA */
+if (isset($_POST['edit'])) {
+    $id         = mysqli_real_escape_string($conn, $_POST['id_kriteria']);
+    $kode       = mysqli_real_escape_string($conn, $_POST['kode_kriteria']);
+    $nama       = mysqli_real_escape_string($conn, $_POST['nama_kriteria']);
+    $kolom_data = mysqli_real_escape_string($conn, $_POST['kolom_data']);
+    $jenis      = mysqli_real_escape_string($conn, $_POST['jenis']);
+    $bobot      = mysqli_real_escape_string($conn, $_POST['bobot']);
+
+    mysqli_query($conn, "
+        UPDATE kriteria SET
+            kode_kriteria = '$kode',
+            nama_kriteria = '$nama',
+            kolom_data = '$kolom_data',
+            jenis = '$jenis',
+            bobot = '$bobot'
+        WHERE id_kriteria = '$id'
+    ");
+
+    mysqli_query($conn, "
+        INSERT INTO log_aktivitas (aksi, tanggal, id_user)
+        VALUES ('Mengedit kriteria: $nama', NOW(), '{$_SESSION['id_user']}')
+    ");
+
+    header("Location: konfigurasi_kriteria.php");
+    exit;
+}
+
+/* SIMPAN SEMUA BOBOT */
 if (isset($_POST['simpan'])) {
     foreach ($_POST['id_kriteria'] as $index => $id) {
-        $id = mysqli_real_escape_string($conn, $id);
+        $id    = mysqli_real_escape_string($conn, $id);
         $jenis = mysqli_real_escape_string($conn, $_POST['jenis'][$index]);
         $bobot = mysqli_real_escape_string($conn, $_POST['bobot'][$index]);
 
@@ -78,8 +109,20 @@ if (isset($_GET['hapus'])) {
     exit;
 }
 
-/* URUTKAN BERDASARKAN BOBOT TERTINGGI */
-$kriteria = mysqli_query($conn, "SELECT * FROM kriteria ORDER BY bobot DESC, id_kriteria ASC");
+$editData = null;
+
+if (isset($_GET['edit'])) {
+    $idEdit = mysqli_real_escape_string($conn, $_GET['edit']);
+    $editData = mysqli_fetch_assoc(mysqli_query($conn, "
+        SELECT * FROM kriteria WHERE id_kriteria='$idEdit'
+    "));
+}
+
+/* BOBOT TERTINGGI DI ATAS */
+$kriteria = mysqli_query($conn, "
+    SELECT * FROM kriteria 
+    ORDER BY bobot DESC, id_kriteria ASC
+");
 ?>
 
 <!DOCTYPE html>
@@ -112,7 +155,7 @@ $kriteria = mysqli_query($conn, "SELECT * FROM kriteria ORDER BY bobot DESC, id_
     <!-- AREA KANAN -->
     <main class="dashboard-main">
 
-        <!-- SECTION 2: TOPBAR -->
+    <!-- SECTION 2: TOPBAR -->
         <section class="section-topbar">
             <h3>Dashboard</h3>
 
@@ -125,22 +168,107 @@ $kriteria = mysqli_query($conn, "SELECT * FROM kriteria ORDER BY bobot DESC, id_
         <!-- SECTION 3: KONTEN KRITERIA -->
         <section class="section-content criteria-content">
             <div class="criteria-header">
-                <h2>Manajemen Bobot Kriteria</h2>
+                <h2>Manajemen Bobot Kriteria (Metode TOPSIS)</h2>
             </div>
 
             <!-- FORM TAMBAH KRITERIA -->
             <form method="POST" style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-                <input type="text" name="kode_kriteria" class="form-input" placeholder="Kode, contoh: C1" required>
-                <input type="text" name="nama_kriteria" class="form-input" placeholder="Nama Kriteria" required>
+                <input 
+                    type="hidden" 
+                    name="id_kriteria" 
+                    value="<?php echo $editData ? $editData['id_kriteria'] : ''; ?>"
+                >
 
-                <select name="jenis" class="filter-select" required>
-                    <option value="benefit">Benefit</option>
-                    <option value="cost">Cost</option>
+                <input 
+                    type="text" 
+                    name="kode_kriteria" 
+                    class="form-input" 
+                    placeholder="Kode, contoh: C1"
+                    value="<?php echo $editData ? $editData['kode_kriteria'] : ''; ?>"
+                    required
+                >
+
+                <input 
+                    type="text" 
+                    name="nama_kriteria" 
+                    class="form-input" 
+                    placeholder="Nama Kriteria"
+                    value="<?php echo $editData ? $editData['nama_kriteria'] : ''; ?>"
+                    required
+                >
+
+                <select name="kolom_data" class="filter-select" required>
+                    <option value="">Pilih Kolom Data</option>
+
+                    <option value="ipk" <?php if ($editData && $editData['kolom_data'] == 'ipk') echo 'selected'; ?>>
+                        IPK
+                    </option>
+
+                    <option value="skor_toefl" <?php if ($editData && $editData['kolom_data'] == 'skor_toefl') echo 'selected'; ?>>
+                        Skor TOEFL
+                    </option>
+
+                    <option value="jml_mengulang" <?php if ($editData && $editData['kolom_data'] == 'jml_mengulang') echo 'selected'; ?>>
+                        Jumlah Mengulang
+                    </option>
+
+                    <option value="sks_lulus" <?php if ($editData && $editData['kolom_data'] == 'sks_lulus') echo 'selected'; ?>>
+                        SKS Lulus
+                    </option>
+
+                    <option value="sisa_masa_studi" <?php if ($editData && $editData['kolom_data'] == 'sisa_masa_studi') echo 'selected'; ?>>
+                        Sisa Masa Studi
+                    </option>
+
+                    <option value="jalur_masuk" <?php if ($editData && $editData['kolom_data'] == 'jalur_masuk') echo 'selected'; ?>>
+                        Jalur Masuk
+                    </option>
+
+                    <option value="absensi" <?php if ($editData && $editData['kolom_data'] == 'absensi') echo 'selected'; ?>>
+                        Absensi
+                    </option>
+
+                    <option value="sks_diambil" <?php if ($editData && $editData['kolom_data'] == 'sks_diambil') echo 'selected'; ?>>
+                        SKS Diambil
+                    </option>
+
+                    <option value="sks_nilai_kurang_c" <?php if ($editData && $editData['kolom_data'] == 'sks_nilai_kurang_c') echo 'selected'; ?>>
+                        SKS Nilai Kurang C
+                    </option>
                 </select>
 
-                <input type="number" step="0.01" name="bobot" class="form-input" placeholder="Bobot, contoh: 0.25" required>
+                <select name="jenis" class="filter-select" required>
+                    <option value="benefit" <?php if ($editData && $editData['jenis'] == 'benefit') echo 'selected'; ?>>
+                        Benefit
+                    </option>
+                    <option value="cost" <?php if ($editData && $editData['jenis'] == 'cost') echo 'selected'; ?>>
+                        Cost
+                    </option>
+                </select>
 
-                <button type="submit" name="tambah" class="btn-add">+ Tambah Kriteria Baru</button>
+                <input 
+                    type="number" 
+                    step="0.01" 
+                    name="bobot" 
+                    class="form-input" 
+                    placeholder="Bobot, contoh: 0.25"
+                    value="<?php echo $editData ? $editData['bobot'] : ''; ?>"
+                    required
+                >
+
+                <?php if ($editData) { ?>
+                    <button type="submit" name="edit" class="btn-add">
+                        Simpan Edit
+                    </button>
+
+                    <a href="konfigurasi_kriteria.php" class="btn-add" style="text-decoration:none;">
+                        Batal
+                    </a>
+                <?php } else { ?>
+                    <button type="submit" name="tambah" class="btn-add">
+                        + Tambah Kriteria Baru
+                    </button>
+                <?php } ?>
             </form>
 
             <!-- FORM UPDATE BOBOT -->
@@ -150,7 +278,8 @@ $kriteria = mysqli_query($conn, "SELECT * FROM kriteria ORDER BY bobot DESC, id_
                         <tr>
                             <th>Kode</th>
                             <th>Kriteria</th>
-                            <th>Atribut (Tipe)</th>
+                            <th>Kolom Data</th>
+                            <th>Atribut</th>
                             <th>Nilai Bobot</th>
                             <th>Aksi</th>
                         </tr>
@@ -168,9 +297,16 @@ $kriteria = mysqli_query($conn, "SELECT * FROM kriteria ORDER BY bobot DESC, id_
                                 <td><?php echo $row['nama_kriteria']; ?></td>
 
                                 <td>
+                                    <?php echo isset($row['kolom_data']) ? $row['kolom_data'] : '-'; ?>
+                                </td>
+                                <td>
                                     <select name="jenis[]" class="filter-select criteria-select">
-                                        <option value="benefit" <?php if ($row['jenis'] == 'benefit') echo 'selected'; ?>>Benefit</option>
-                                        <option value="cost" <?php if ($row['jenis'] == 'cost') echo 'selected'; ?>>Cost</option>
+                                        <option value="benefit" <?php if ($row['jenis'] == 'benefit') echo 'selected'; ?>>
+                                            Benefit
+                                        </option>
+                                        <option value="cost" <?php if ($row['jenis'] == 'cost') echo 'selected'; ?>>
+                                            Cost
+                                        </option>
                                     </select>
                                 </td>
 
@@ -187,6 +323,13 @@ $kriteria = mysqli_query($conn, "SELECT * FROM kriteria ORDER BY bobot DESC, id_
 
                                 <td>
                                     <a 
+                                        href="konfigurasi_kriteria.php?edit=<?php echo $row['id_kriteria']; ?>" 
+                                        style="color:#007bff; text-decoration:none; margin-right:10px;"
+                                    >
+                                        Edit
+                                    </a>
+
+                                    <a 
                                         href="konfigurasi_kriteria.php?hapus=<?php echo $row['id_kriteria']; ?>" 
                                         onclick="return confirm('Yakin ingin menghapus kriteria ini?')"
                                         style="color:red; text-decoration:none;"
@@ -198,7 +341,7 @@ $kriteria = mysqli_query($conn, "SELECT * FROM kriteria ORDER BY bobot DESC, id_
                             <?php } ?>
                         <?php } else { ?>
                             <tr>
-                                <td colspan="5" style="text-align:center;">Belum ada data kriteria</td>
+                                <td colspan="6" style="text-align:center;">Belum ada data kriteria</td>
                             </tr>
                         <?php } ?>
                     </tbody>

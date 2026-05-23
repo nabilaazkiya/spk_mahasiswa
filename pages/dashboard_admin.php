@@ -29,7 +29,7 @@ $logAktivitas = mysqli_query($conn, "
     FROM log_aktivitas l
     LEFT JOIN user u ON l.id_user = u.id_user
     ORDER BY l.tanggal DESC
-    LIMIT 10
+    
 ");
 ?>
 
