@@ -294,12 +294,14 @@ if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
             <div>
                 <h4 style="text-align:center;">Grafik Sebaran Kategori</h4>
                 <div class="chart-box">
-                    <canvas id="pieChart"></canvas>
+                    <div class="pie-container">
+                        <canvas id="pieChart"></canvas>
+                    </div>
                 </div>
             </div>
 
             <div class="analysis-text">
-                <h4>Kesimpulan Sistem</h4>
+                <h4>Kesimpulan Sebaran Mahasiswa</h4>
                 <p>
                     Dashboard ini menampilkan hasil evaluasi akademik mahasiswa
                     berdasarkan metode TOPSIS.
@@ -345,7 +347,20 @@ new Chart(pieCtx, {
     },
     options: {
         responsive: true,
-        maintainAspectRatio: false
+        maintainAspectRatio: false,
+        plugins: {
+        legend: {
+            position: 'top',
+
+            labels: {
+                boxWidth: 0,
+                padding: 0,
+                font: {
+                    size:0
+                 }
+                }
+            }
+        }
     }
 });
 

@@ -2,22 +2,23 @@
 session_start();
 include "../config/database.php";
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] != 'kaprodi') {
+if (!isset($_SESSION['role']) || $_SESSION['role'] != 'dpa') {
     header("Location: ../login.php");
     exit;
 }
 
+$namaDpa = mysqli_real_escape_string($conn, $_SESSION['nama_lengkap']);
+
 $keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
 $sort = isset($_GET['sort']) ? $_GET['sort'] : 'ranking';
 
-$where = "WHERE 1=1";
+$where = "WHERE d.dosen_pa = '$namaDpa'";
 
 if ($keyword != '') {
     $keywordSafe = mysqli_real_escape_string($conn, $keyword);
     $where .= " AND (
         d.nim LIKE '%$keywordSafe%' 
         OR d.nama_mahasiswa LIKE '%$keywordSafe%'
-        OR d.dosen_pa LIKE '%$keywordSafe%'
         OR h.status_early_warning LIKE '%$keywordSafe%'
     )";
 }
@@ -56,15 +57,12 @@ $totalData = mysqli_num_rows($query);
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Monitoring Mahasiswa</title>
-
+    <title>Monitoring Dosen PA</title>
     <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
 <div class="dashboard-wrapper">
-
-    <!-- SECTION 1: SIDEBAR -->
     <aside class="section-sidebar">
         <div class="logo-area">
             <img src="../assets/img/logo_psti.jpg" class="sidebar-logo">
@@ -72,27 +70,26 @@ $totalData = mysqli_num_rows($query);
         </div>
 
         <nav class="nav-menu">
-            <a href="dashboard_kaprodi.php" class="nav-link">Dashboard</a>
-            <a href="monitoring.php" class="nav-link active">Monitoring</a>
+            <a href="dashboard_dpa.php" class="nav-link">Dashboard</a>
+            <a href="monitoring_dpa.php" class="nav-link active">Monitoring</a>
         </nav>
 
         <a href="../logout.php" class="logout-button">LOGOUT</a>
     </aside>
 
-    <!-- AREA KANAN -->
     <main class="dashboard-main">
         <section class="section-topbar">
             <h3>Dashboard</h3>
             <div class="admin-info">
                 <div>
                     <strong><?php echo $_SESSION['nama_lengkap']; ?></strong><br>
-                    <small>Kaprodi</small>
+                    <small>Dosen PA</small>
                 </div>
                 <div class="admin-avatar"></div>
             </div>
         </section>
 
-        <form method="GET" action="monitoring.php" class="monitor-filter-card">
+        <form method="GET" action="monitoring_dpa.php" class="monitor-filter-card">
             <div class="sort-area">
                 <span>Urutkan Berdasarkan</span>
                 <div class="sort-select-wrapper">
@@ -119,7 +116,7 @@ $totalData = mysqli_num_rows($query);
 
         <section class="section-content monitoring-content">
             <div class="monitoring-title">
-                <h2>Monitoring Seluruh Mahasiswa</h2>
+                <h2>Mahasiswa Bimbingan</h2>
                 <p><?php echo $totalData; ?> total</p>
             </div>
 
@@ -129,7 +126,6 @@ $totalData = mysqli_num_rows($query);
                         <th>Ranking</th>
                         <th>NIM</th>
                         <th>Nama</th>
-                        <th>Dosen PA</th>
                         <th>IPK</th>
                         <th>SKS</th>
                         <th>Skor TOPSIS</th>
@@ -145,7 +141,6 @@ $totalData = mysqli_num_rows($query);
                             <td><?php echo $row['ranking'] ?? '-'; ?></td>
                             <td><?php echo $row['nim']; ?></td>
                             <td><?php echo $row['nama_mahasiswa']; ?></td>
-                            <td><?php echo $row['dosen_pa']; ?></td>
                             <td><?php echo $row['ipk']; ?></td>
                             <td><?php echo $row['sks_lulus']; ?></td>
                             <td><?php echo $row['nilai_preferensi'] ? number_format($row['nilai_preferensi'], 4) : '-'; ?></td>
@@ -159,7 +154,9 @@ $totalData = mysqli_num_rows($query);
                         <?php } ?>
                     <?php } else { ?>
                         <tr>
-                            <td colspan="9" style="text-align:center;">Data tidak ditemukan</td>
+                            <td colspan="8" style="text-align:center;">
+                                Tidak ada mahasiswa bimbingan
+                            </td>
                         </tr>
                     <?php } ?>
                 </tbody>

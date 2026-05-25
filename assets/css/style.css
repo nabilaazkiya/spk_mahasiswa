@@ -486,7 +486,9 @@ body {
 }
 
 .chart-box {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .chart-box h4 {
@@ -560,6 +562,17 @@ body {
     background: #22c55e;
 }
 
+.pieChart{
+    max-width: 180px;
+    max-height: 180px;
+    margin: auto;
+}
+
+.pie-container{
+    width: 180px;
+    height: 180px;
+    position: relative;
+}
 
 /* =========================================================
    TABEL:
