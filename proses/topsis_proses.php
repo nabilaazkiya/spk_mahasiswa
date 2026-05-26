@@ -194,7 +194,9 @@ foreach ($dataMahasiswa as $mhs) {
 
     $hasilTopsis[] = [
         'nim' => $mhs['nim'],
-        'nilai_preferensi' => $preferensi
+        'nilai_preferensi' => $preferensi,
+        'd_plus' => $dPlus,
+        'd_minus' => $dMinus
     ];
 }
 
@@ -222,12 +224,17 @@ foreach ($hasilTopsis as $hasil) {
             nim,
             nilai_preferensi,
             ranking,
-            periode_evaluasi
-        ) VALUES (
+            periode_evaluasi,
+            jarak_positif,
+            jarak_negatif
+        )
+        VALUES (
             '{$hasil['nim']}',
             '{$hasil['nilai_preferensi']}',
             '$ranking',
-            '$periode'
+            '$periode',
+            '{$hasil['d_plus']}',
+            '{$hasil['d_minus']}'
         )
     ");
 

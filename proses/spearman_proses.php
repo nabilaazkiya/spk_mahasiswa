@@ -1,10 +1,14 @@
 <?php
+session_start();
 include "../config/database.php";
 
 mysqli_query($conn, "DELETE FROM uji_spearman");
 
 $query = mysqli_query($conn, "
-    SELECT t.nim, t.ranking AS ranking_topsis, s.ranking AS ranking_saw
+    SELECT 
+        t.nim,
+        t.ranking AS ranking_topsis,
+        s.ranking AS ranking_saw
     FROM ranking_topsis t
     JOIN ranking_saw s ON t.nim = s.nim
 ");
@@ -36,10 +40,34 @@ if ($rs >= 0.80) {
     $keterangan = 'Lemah';
 }
 
+$preferensiModel = 'TOPSIS dan SAW belum konsisten';
+
+if ($rs >= 0.80) {
+    $preferensiModel = 'TOPSIS dan SAW sangat konsisten';
+} elseif ($rs >= 0.60) {
+    $preferensiModel = 'TOPSIS dan SAW cukup konsisten';
+} elseif ($rs >= 0.40) {
+    $preferensiModel = 'TOPSIS dan SAW memiliki kesamaan sedang';
+}
+
 mysqli_query($conn, "
-    INSERT INTO uji_spearman (rs, keterangan)
-    VALUES ('$rs', '$keterangan')
+    INSERT INTO uji_spearman (
+        rs,
+        keterangan,
+        preferensi_model
+    ) VALUES (
+        '$rs',
+        '$keterangan',
+        '$preferensiModel'
+    )
 ");
+
+if (isset($_SESSION['id_user'])) {
+    mysqli_query($conn, "
+        INSERT INTO log_aktivitas (aksi, tanggal, id_user)
+        VALUES ('Melakukan uji korelasi Spearman TOPSIS dan SAW', NOW(), '{$_SESSION['id_user']}')
+    ");
+}
 
 header("Location: ../pages/monitoring.php");
 exit;

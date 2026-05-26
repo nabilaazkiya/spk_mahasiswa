@@ -7,17 +7,26 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'kaprodi') {
     exit;
 }
 
-$keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
+$keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 $sort = isset($_GET['sort']) ? $_GET['sort'] : 'ranking';
 
 $where = "WHERE 1=1";
 
+if ($_SESSION['role'] == 'dpa') {
+    $namaDpa = mysqli_real_escape_string($conn, $_SESSION['nama_lengkap']);
+    $where .= " AND d.dosen_pa = '$namaDpa'";
+}
+
 if ($keyword != '') {
     $keywordSafe = mysqli_real_escape_string($conn, $keyword);
+
     $where .= " AND (
-        d.nim LIKE '%$keywordSafe%' 
+        d.nim LIKE '%$keywordSafe%'
         OR d.nama_mahasiswa LIKE '%$keywordSafe%'
         OR d.dosen_pa LIKE '%$keywordSafe%'
+        OR d.ipk LIKE '%$keywordSafe%'
+        OR d.sks_lulus LIKE '%$keywordSafe%'
+        OR r.nilai_preferensi LIKE '%$keywordSafe%'
         OR h.status_early_warning LIKE '%$keywordSafe%'
     )";
 }
@@ -92,9 +101,10 @@ $totalData = mysqli_num_rows($query);
             </div>
         </section>
 
-        <form method="GET" action="monitoring.php" class="monitor-filter-card">
+        <form method="GET" action="" class="monitor-filter-card">
             <div class="sort-area">
                 <span>Urutkan Berdasarkan</span>
+
                 <div class="sort-select-wrapper">
                     <select name="sort" class="sort-select" onchange="this.form.submit()">
                         <option value="ranking" <?php if ($sort == 'ranking') echo 'selected'; ?>>Ranking</option>
@@ -113,7 +123,10 @@ $totalData = mysqli_num_rows($query);
                     placeholder="Search"
                     value="<?php echo htmlspecialchars($keyword); ?>"
                 >
-                <button type="submit" style="border:none;background:none;cursor:pointer;">🔍</button>
+
+                <button type="submit" style="border:none;background:none;cursor:pointer;">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
             </div>
         </form>
 
