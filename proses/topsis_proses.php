@@ -270,11 +270,6 @@ if (isset($_SESSION['id_user'])) {
     ");
 }
 
-echo "
-<script>
-    alert('Proses TOPSIS berhasil dijalankan.');
-    window.location='../pages/monitoring.php';
-</script>
-";
+header("Location: saw_proses.php");
 exit;
 ?>
