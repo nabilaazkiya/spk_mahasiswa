@@ -197,44 +197,22 @@ $kriteria = mysqli_query($conn, "
                     required
                 >
 
-                <select name="kolom_data" class="filter-select" required>
-                    <option value="">Pilih Kolom Data</option>
+                <select name="kolom_data" class="filter-select">
 
-                    <option value="ipk" <?php if ($editData && $editData['kolom_data'] == 'ipk') echo 'selected'; ?>>
-                        IPK
+                    <option value="manual">
+                        Input Manual
                     </option>
 
-                    <option value="skor_toefl" <?php if ($editData && $editData['kolom_data'] == 'skor_toefl') echo 'selected'; ?>>
-                        Skor TOEFL
-                    </option>
+                    <option value="ipk">IPK</option>
+                    <option value="skor_toefl">Skor TOEFL</option>
+                    <option value="jml_mengulang">Jumlah Mengulang</option>
+                    <option value="sks_lulus">SKS Lulus</option>
+                    <option value="sisa_masa_studi">Sisa Masa Studi</option>
+                    <option value="jalur_masuk">Jalur Masuk</option>
+                    <option value="absensi">Absensi</option>
+                    <option value="sks_diambil">SKS Diambil</option>
+                    <option value="sks_nilai_kurang_c">SKS Nilai Kurang C</option>
 
-                    <option value="jml_mengulang" <?php if ($editData && $editData['kolom_data'] == 'jml_mengulang') echo 'selected'; ?>>
-                        Jumlah Mengulang
-                    </option>
-
-                    <option value="sks_lulus" <?php if ($editData && $editData['kolom_data'] == 'sks_lulus') echo 'selected'; ?>>
-                        SKS Lulus
-                    </option>
-
-                    <option value="sisa_masa_studi" <?php if ($editData && $editData['kolom_data'] == 'sisa_masa_studi') echo 'selected'; ?>>
-                        Sisa Masa Studi
-                    </option>
-
-                    <option value="jalur_masuk" <?php if ($editData && $editData['kolom_data'] == 'jalur_masuk') echo 'selected'; ?>>
-                        Jalur Masuk
-                    </option>
-
-                    <option value="absensi" <?php if ($editData && $editData['kolom_data'] == 'absensi') echo 'selected'; ?>>
-                        Absensi
-                    </option>
-
-                    <option value="sks_diambil" <?php if ($editData && $editData['kolom_data'] == 'sks_diambil') echo 'selected'; ?>>
-                        SKS Diambil
-                    </option>
-
-                    <option value="sks_nilai_kurang_c" <?php if ($editData && $editData['kolom_data'] == 'sks_nilai_kurang_c') echo 'selected'; ?>>
-                        SKS Nilai Kurang C
-                    </option>
                 </select>
 
                 <select name="jenis" class="filter-select" required>
@@ -297,8 +275,18 @@ $kriteria = mysqli_query($conn, "
                                 <td><?php echo $row['nama_kriteria']; ?></td>
 
                                 <td>
-                                    <?php echo isset($row['kolom_data']) ? $row['kolom_data'] : '-'; ?>
+                                    <?php
+                                    if (
+                                        $row['kolom_data'] == 'manual' ||
+                                        $row['kolom_data'] == ''
+                                    ) {
+                                        echo 'Input Manual';
+                                    } else {
+                                        echo $row['kolom_data'];
+                                    }
+                                    ?>
                                 </td>
+                                
                                 <td>
                                     <select name="jenis[]" class="filter-select criteria-select">
                                         <option value="benefit" <?php if ($row['jenis'] == 'benefit') echo 'selected'; ?>>

@@ -27,9 +27,8 @@ while ($row = mysqli_fetch_assoc($qMahasiswa)) {
 /* AMBIL DATA KRITERIA DARI KONFIGURASI ADMIN */
 $dataKriteria = [];
 $qKriteria = mysqli_query($conn, "
-    SELECT * FROM kriteria
-    WHERE kolom_data IS NOT NULL
-    AND kolom_data != ''
+    SELECT *
+    FROM kriteria
     ORDER BY bobot DESC
 ");
 
@@ -75,10 +74,27 @@ if (abs($totalBobot - 1.00) > 0.001) {
 }
 
 /* FUNGSI AMBIL NILAI BERDASARKAN KOLOM DATA */
-function ambilNilaiKriteria($mhs, $kolomData)
+function ambilNilaiKriteria($conn, $mhs, $krit)
 {
-    if (isset($mhs[$kolomData])) {
+    $kolomData = $krit['kolom_data'];
+
+    if (!empty($kolomData) && $kolomData != 'manual' && isset($mhs[$kolomData])) {
         return floatval($mhs[$kolomData]);
+    }
+
+    $nim = mysqli_real_escape_string($conn, $mhs['nim']);
+    $idKriteria = mysqli_real_escape_string($conn, $krit['id_kriteria']);
+
+    $q = mysqli_query($conn, "
+        SELECT nilai
+        FROM nilai_kriteria_tambahan
+        WHERE nim = '$nim'
+        AND id_kriteria = '$idKriteria'
+        LIMIT 1
+    ");
+
+    if ($row = mysqli_fetch_assoc($q)) {
+        return floatval($row['nilai']);
     }
 
     return 0;
@@ -90,9 +106,7 @@ $matriks = [];
 foreach ($dataMahasiswa as $mhs) {
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
-        $kolomData = $krit['kolom_data'];
-
-        $matriks[$mhs['nim']][$idKriteria] = ambilNilaiKriteria($mhs, $kolomData);
+        $matriks[$mhs['nim']][$idKriteria] = ambilNilaiKriteria($conn, $mhs, $krit);
     }
 }
 
