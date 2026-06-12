@@ -54,7 +54,7 @@ $qKriteria = mysqli_query($conn, "
     SELECT * FROM kriteria 
     WHERE kolom_data IS NOT NULL 
     AND kolom_data != ''
-    ORDER BY bobot DESC
+    ORDER BY bobot_delphi DESC
 ");
 
 while ($row = mysqli_fetch_assoc($qKriteria)) {
@@ -107,7 +107,7 @@ if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
     foreach ($dataMahasiswa as $mhs) {
         foreach ($dataKriteria as $krit) {
             $idKriteria = $krit['id_kriteria'];
-            $bobot = floatval($krit['bobot']);
+            $bobot = floatval($krit['bobot_delphi']);
 
             $normalisasiTerbobot[$mhs['nim']][$idKriteria] =
                 $normalisasi[$mhs['nim']][$idKriteria] * $bobot;
@@ -162,40 +162,6 @@ if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <style>
-        .chart-area {
-            display: grid;
-            grid-template-columns: 45% 55%;
-            gap: 25px;
-            align-items: center;
-            background: #fff;
-            padding: 25px;
-            border-radius: 18px;
-            margin-top: 20px;
-        }
-
-        .chart-box {
-            height: 260px;
-        }
-
-        .scatter-box {
-            background: #fff;
-            padding: 25px;
-            border-radius: 18px;
-            margin-top: 20px;
-            height: 320px;
-        }
-
-        .analysis-text {
-            line-height: 1.8;
-            font-size: 14px;
-        }
-
-        .detail-button {
-            display: inline-block;
-            margin-top: 15px;
-        }
-    </style>
 </head>
 <body>
 

@@ -9,52 +9,134 @@ if (!isset($_SESSION['role'])) {
 
 $periode = date('Y-m-d');
 
+/* HAPUS HASIL SAW LAMA */
 mysqli_query($conn, "DELETE FROM ranking_saw");
 
+/* AMBIL DATA AKADEMIK TERBARU PER MAHASISWA */
 $dataMahasiswa = [];
-$qMahasiswa = mysqli_query($conn, "SELECT * FROM data_akademik");
+
+$qMahasiswa = mysqli_query($conn, "
+    SELECT da.*
+    FROM data_akademik da
+    INNER JOIN (
+        SELECT nim, MAX(id_data) AS id_data_terbaru
+        FROM data_akademik
+        GROUP BY nim
+    ) terbaru
+    ON da.nim = terbaru.nim
+    AND da.id_data = terbaru.id_data_terbaru
+");
 
 while ($row = mysqli_fetch_assoc($qMahasiswa)) {
     $dataMahasiswa[] = $row;
 }
 
+/* AMBIL KRITERIA BERDASARKAN BOBOT DELPHI */
 $dataKriteria = [];
+
 $qKriteria = mysqli_query($conn, "
-    SELECT * FROM kriteria
+    SELECT *
+    FROM kriteria
     WHERE kolom_data IS NOT NULL
     AND kolom_data != ''
-    ORDER BY bobot DESC
+    AND bobot_delphi > 0
+    ORDER BY bobot_delphi DESC
 ");
 
 while ($row = mysqli_fetch_assoc($qKriteria)) {
     $dataKriteria[] = $row;
 }
 
-if (count($dataMahasiswa) == 0 || count($dataKriteria) == 0) {
+/* VALIDASI DATA */
+if (count($dataMahasiswa) == 0) {
     echo "
     <script>
-        alert('Data mahasiswa atau kriteria masih kosong.');
+        alert('Data akademik mahasiswa masih kosong.');
         window.location='../pages/monitoring.php';
     </script>";
     exit;
 }
 
-function ambilNilaiSaw($mhs, $kolomData)
-{
-    return isset($mhs[$kolomData]) ? floatval($mhs[$kolomData]) : 0;
+if (count($dataKriteria) == 0) {
+    echo "
+    <script>
+        alert('Data kriteria atau bobot Delphi belum tersedia.');
+        window.location='../pages/konfigurasi_kriteria.php';
+    </script>";
+    exit;
 }
 
+/* CEK DAN NORMALISASI TOTAL BOBOT */
+$totalBobot = 0;
+
+foreach ($dataKriteria as $krit) {
+    $totalBobot += floatval($krit['bobot_delphi']);
+}
+
+if ($totalBobot <= 0) {
+    echo "
+    <script>
+        alert('Total bobot Delphi masih 0. Hitung bobot Delphi terlebih dahulu.');
+        window.location='../pages/konfigurasi_kriteria.php';
+    </script>";
+    exit;
+}
+
+foreach ($dataKriteria as $i => $krit) {
+    $dataKriteria[$i]['bobot_normal'] =
+        floatval($krit['bobot_delphi']) / $totalBobot;
+}
+
+/* FUNGSI AMBIL NILAI SAW */
+function ambilNilaiSaw($mhs, $kolomData)
+{
+    if (!isset($mhs[$kolomData])) {
+        return 0;
+    }
+
+    $nilai = $mhs[$kolomData];
+
+    if ($nilai === null || $nilai === '') {
+        return 0;
+    }
+
+    /*
+        Jika jalur_masuk berupa teks,
+        ubah menjadi angka.
+        Sesuaikan mapping ini jika data kamu berbeda.
+    */
+    if ($kolomData == 'jalur_masuk') {
+        $nilaiLower = strtolower(trim($nilai));
+
+        if ($nilaiLower == 'snbp' || $nilaiLower == 'snmptn') {
+            return 4;
+        } elseif ($nilaiLower == 'snbt' || $nilaiLower == 'sbmptn') {
+            return 3;
+        } elseif ($nilaiLower == 'mandiri') {
+            return 2;
+        } else {
+            return 1;
+        }
+    }
+
+    return floatval($nilai);
+}
+
+/* 1. MEMBENTUK MATRIKS KEPUTUSAN */
 $matrix = [];
 
 foreach ($dataMahasiswa as $mhs) {
+    $nim = $mhs['nim'];
+
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
         $kolomData = $krit['kolom_data'];
 
-        $matrix[$mhs['nim']][$idKriteria] = ambilNilaiSaw($mhs, $kolomData);
+        $matrix[$nim][$idKriteria] = ambilNilaiSaw($mhs, $kolomData);
     }
 }
 
+/* 2. MENENTUKAN NILAI MAX DAN MIN SETIAP KRITERIA */
 $maxMin = [];
 
 foreach ($dataKriteria as $krit) {
@@ -62,7 +144,8 @@ foreach ($dataKriteria as $krit) {
     $nilaiKolom = [];
 
     foreach ($dataMahasiswa as $mhs) {
-        $nilaiKolom[] = $matrix[$mhs['nim']][$idKriteria];
+        $nim = $mhs['nim'];
+        $nilaiKolom[] = $matrix[$nim][$idKriteria];
     }
 
     $maxMin[$idKriteria] = [
@@ -71,16 +154,18 @@ foreach ($dataKriteria as $krit) {
     ];
 }
 
+/* 3. NORMALISASI SAW DAN HITUNG NILAI PREFERENSI */
 $hasilSaw = [];
 
 foreach ($dataMahasiswa as $mhs) {
+    $nim = $mhs['nim'];
     $total = 0;
 
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
-        $nilai = $matrix[$mhs['nim']][$idKriteria];
-        $bobot = floatval($krit['bobot']);
-        $jenis = strtolower($krit['jenis']);
+        $nilai = $matrix[$nim][$idKriteria];
+        $bobot = floatval($krit['bobot_normal']);
+        $jenis = strtolower(trim($krit['jenis']));
 
         $normal = 0;
 
@@ -89,7 +174,18 @@ foreach ($dataMahasiswa as $mhs) {
                 $normal = $nilai / $maxMin[$idKriteria]['max'];
             }
         } else {
-            if ($nilai != 0) {
+            /*
+                Cost:
+                semakin kecil semakin baik.
+                Rumus: min / nilai
+
+                Jika nilai 0 dan kriteria cost,
+                maka mahasiswa mendapat nilai normalisasi terbaik = 1.
+                Contoh: jumlah mengulang = 0, absensi = 0.
+            */
+            if ($nilai == 0) {
+                $normal = 1;
+            } else {
                 $normal = $maxMin[$idKriteria]['min'] / $nilai;
             }
         }
@@ -98,18 +194,27 @@ foreach ($dataMahasiswa as $mhs) {
     }
 
     $hasilSaw[] = [
-        'nim' => $mhs['nim'],
+        'nim' => $nim,
         'nilai_preferensi' => $total
     ];
 }
 
+/* 4. URUTKAN RANKING SAW */
 usort($hasilSaw, function ($a, $b) {
-    return $b['nilai_preferensi'] <=> $a['nilai_preferensi'];
+    if ($a['nilai_preferensi'] == $b['nilai_preferensi']) {
+        return 0;
+    }
+
+    return ($a['nilai_preferensi'] < $b['nilai_preferensi']) ? 1 : -1;
 });
 
+/* 5. SIMPAN HASIL SAW */
 $ranking = 1;
 
 foreach ($hasilSaw as $hasil) {
+    $nim = mysqli_real_escape_string($conn, $hasil['nim']);
+    $nilaiPreferensi = $hasil['nilai_preferensi'];
+
     mysqli_query($conn, "
         INSERT INTO ranking_saw (
             nim,
@@ -117,8 +222,8 @@ foreach ($hasilSaw as $hasil) {
             ranking,
             periode_evaluasi
         ) VALUES (
-            '{$hasil['nim']}',
-            '{$hasil['nilai_preferensi']}',
+            '$nim',
+            '$nilaiPreferensi',
             '$ranking',
             '$periode'
         )
@@ -127,13 +232,24 @@ foreach ($hasilSaw as $hasil) {
     $ranking++;
 }
 
+/* LOG AKTIVITAS */
 if (isset($_SESSION['id_user'])) {
+    $idUser = mysqli_real_escape_string($conn, $_SESSION['id_user']);
+
     mysqli_query($conn, "
-        INSERT INTO log_aktivitas (aksi, tanggal, id_user)
-        VALUES ('Menjalankan proses perhitungan SAW', NOW(), '{$_SESSION['id_user']}')
+        INSERT INTO log_aktivitas (
+            id_user,
+            aksi,
+            tanggal
+        ) VALUES (
+            '$idUser',
+            'Menjalankan proses perhitungan SAW',
+            NOW()
+        )
     ");
 }
 
+/* LANJUT KE SPEARMAN */
 header("Location: spearman_proses.php");
 exit;
 ?>

@@ -10,50 +10,59 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'dpa') {
 $namaDpa = mysqli_real_escape_string($conn, $_SESSION['nama_lengkap']);
 
 /* TOTAL MAHASISWA BIMBINGAN */
+$idDpa = $_SESSION['id_user'];
+
 $totalMahasiswa = mysqli_fetch_assoc(mysqli_query($conn, "
-    SELECT COUNT(DISTINCT nim) AS total 
-    FROM data_akademik
-    WHERE dosen_pa = '$namaDpa'
+    SELECT COUNT(DISTINCT m.nim) AS total
+    FROM mahasiswa m
+    WHERE m.id_user = '$idDpa'
 "));
 
 /* JUMLAH KATEGORI KHUSUS DPA */
 $kritis = mysqli_fetch_assoc(mysqli_query($conn, "
-    SELECT COUNT(*) AS total 
-    FROM data_akademik d
-    LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
-    WHERE d.dosen_pa = '$namaDpa'
-    AND h.status_early_warning='Kritis'
+    SELECT COUNT(*) AS total
+    FROM mahasiswa m
+    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    WHERE m.id_user = '$idDpa'
+    AND h.status_early_warning = 'Kritis'
 "));
 
 $waspada = mysqli_fetch_assoc(mysqli_query($conn, "
-    SELECT COUNT(*) AS total 
-    FROM data_akademik d
-    LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
-    WHERE d.dosen_pa = '$namaDpa'
-    AND h.status_early_warning='Waspada'
+    SELECT COUNT(*) AS total
+    FROM mahasiswa m
+    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    WHERE m.id_user = '$idDpa'
+    AND h.status_early_warning = 'Waspada'
 "));
 
 $aman = mysqli_fetch_assoc(mysqli_query($conn, "
-    SELECT COUNT(*) AS total 
-    FROM data_akademik d
-    LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
-    WHERE d.dosen_pa = '$namaDpa'
-    AND h.status_early_warning='Aman'
+    SELECT COUNT(*) AS total
+    FROM mahasiswa m
+    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    WHERE m.id_user = '$idDpa'
+    AND h.status_early_warning = 'Aman'
 "));
 
 $sangatBaik = mysqli_fetch_assoc(mysqli_query($conn, "
-    SELECT COUNT(*) AS total 
-    FROM data_akademik d
-    LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
-    WHERE d.dosen_pa = '$namaDpa'
-    AND h.status_early_warning='Sangat Baik'
+    SELECT COUNT(*) AS total
+    FROM mahasiswa m
+    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    WHERE m.id_user = '$idDpa'
+    AND h.status_early_warning = 'Sangat Baik'
 "));
 
 /* DATA SCATTER KHUSUS MAHASISWA BIMBINGAN DPA */
 $dataMahasiswa = [];
 $qMahasiswa = mysqli_query($conn, "
-    SELECT * FROM data_akademik
-    WHERE dosen_pa = '$namaDpa'
+    SELECT 
+        d.*,
+        m.nama AS nama_mahasiswa,
+        m.angkatan,
+        u.nama_lengkap AS dosen_pa
+    FROM data_akademik d
+    JOIN mahasiswa m ON d.nim = m.nim
+    LEFT JOIN user u ON m.id_user = u.id_user
+    WHERE m.id_user = '$idDpa'
 ");
 
 while ($row = mysqli_fetch_assoc($qMahasiswa)) {
@@ -65,7 +74,7 @@ $qKriteria = mysqli_query($conn, "
     SELECT * FROM kriteria 
     WHERE kolom_data IS NOT NULL 
     AND kolom_data != ''
-    ORDER BY bobot DESC
+    ORDER BY bobot_delphi DESC
 ");
 
 while ($row = mysqli_fetch_assoc($qKriteria)) {
@@ -118,7 +127,7 @@ if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
     foreach ($dataMahasiswa as $mhs) {
         foreach ($dataKriteria as $krit) {
             $idKriteria = $krit['id_kriteria'];
-            $bobot = floatval($krit['bobot']);
+            $bobot = floatval($krit['bobot_delphi']);
 
             $normalisasiTerbobot[$mhs['nim']][$idKriteria] =
                 $normalisasi[$mhs['nim']][$idKriteria] * $bobot;
@@ -173,49 +182,6 @@ if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <style>
-        .chart-area {
-            display: grid;
-            grid-template-columns: 45% 55%;
-            gap: 25px;
-            align-items: center;
-            background: #fff;
-            padding: 25px;
-            border-radius: 18px;
-            margin-top: 20px;
-        }
-
-        .chart-box {
-            height: 260px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .pie-container {
-            width: 220px;
-            height: 220px;
-            position: relative;
-        }
-
-        .scatter-box {
-            background: #fff;
-            padding: 25px;
-            border-radius: 18px;
-            margin-top: 20px;
-            height: 320px;
-        }
-
-        .analysis-text {
-            line-height: 1.8;
-            font-size: 14px;
-        }
-
-        .detail-button {
-            display: inline-block;
-            margin-top: 15px;
-        }
-    </style>
 </head>
 <body>
 

@@ -68,9 +68,9 @@ $spearman = mysqli_fetch_assoc(mysqli_query($conn, "
 /* RIWAYAT IPK */
 $riwayatQuery = mysqli_query($conn, "
     SELECT semester, ipk
-    FROM riwayat_akademik
+    FROM data_akademik
     WHERE nim = '$nim'
-    ORDER BY tanggal_import ASC
+    ORDER BY semester ASC
 ");
 
 $labelSemester = [];
@@ -86,26 +86,22 @@ $scatterSelected = [];
 
 $scatterQuery = mysqli_query($conn, "
     SELECT 
-        d.nim,
-        r.nilai_preferensi
-    FROM data_akademik d
-    LEFT JOIN ranking_topsis r ON d.nim = r.nim
-    WHERE d.nim = '$nim'
-    AND r.nilai_preferensi IS NOT NULL
+        nim,
+        jarak_positif,
+        jarak_negatif
+    FROM ranking_topsis
+    WHERE nim = '$nim'
+    AND jarak_positif IS NOT NULL
+    AND jarak_negatif IS NOT NULL
     LIMIT 1
 ");
 
 $scatterData = mysqli_fetch_assoc($scatterQuery);
 
 if ($scatterData) {
-    $nilaiPreferensi = floatval($scatterData['nilai_preferensi']);
-
-    $dPlus = 1 - $nilaiPreferensi;
-    $dMinus = $nilaiPreferensi;
-
     $scatterSelected[] = [
-        'x' => round($dPlus, 4),
-        'y' => round($dMinus, 4)
+        'x' => round(floatval($scatterData['jarak_positif']), 4),
+        'y' => round(floatval($scatterData['jarak_negatif']), 4)
     ];
 }
 

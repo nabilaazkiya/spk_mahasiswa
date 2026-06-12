@@ -7,122 +7,91 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-/* TAMBAH KRITERIA */
-if (isset($_POST['tambah'])) {
-    $kode       = mysqli_real_escape_string($conn, $_POST['kode_kriteria']);
-    $nama       = mysqli_real_escape_string($conn, $_POST['nama_kriteria']);
-    $kolom_data = mysqli_real_escape_string($conn, $_POST['kolom_data']);
-    $jenis      = mysqli_real_escape_string($conn, $_POST['jenis']);
-    $bobot      = mysqli_real_escape_string($conn, $_POST['bobot']);
-
+/* CEK KOLOM bobot_delphi */
+$cekKolom = mysqli_query($conn, "SHOW COLUMNS FROM kriteria LIKE 'bobot_delphi'");
+if (mysqli_num_rows($cekKolom) == 0) {
     mysqli_query($conn, "
-        INSERT INTO kriteria 
-        (kode_kriteria, nama_kriteria, kolom_data, jenis, bobot)
-        VALUES 
-        ('$kode', '$nama', '$kolom_data', '$jenis', '$bobot')
+        ALTER TABLE kriteria 
+        ADD COLUMN bobot_delphi DECIMAL(10,6) DEFAULT 0
     ");
-
-    mysqli_query($conn, "
-        INSERT INTO log_aktivitas (aksi, tanggal, id_user)
-        VALUES ('Menambahkan kriteria: $nama', NOW(), '{$_SESSION['id_user']}')
-    ");
-
-    header("Location: konfigurasi_kriteria.php");
-    exit;
 }
 
-/* EDIT KRITERIA */
-if (isset($_POST['edit'])) {
-    $id         = mysqli_real_escape_string($conn, $_POST['id_kriteria']);
-    $kode       = mysqli_real_escape_string($conn, $_POST['kode_kriteria']);
-    $nama       = mysqli_real_escape_string($conn, $_POST['nama_kriteria']);
-    $kolom_data = mysqli_real_escape_string($conn, $_POST['kolom_data']);
-    $jenis      = mysqli_real_escape_string($conn, $_POST['jenis']);
-    $bobot      = mysqli_real_escape_string($conn, $_POST['bobot']);
+/* DATA DELPHI ITERASI 1 */
+$dataDelphi = [
+    ["kode" => "C1", "nama" => "Jalur Masuk", "kolom" => "jalur_masuk", "jenis" => "benefit", "nilai" => [3, 3, 4, 3, 4]],
+    ["kode" => "C2", "nama" => "IP Semester", "kolom" => "ip_semester", "jenis" => "benefit", "nilai" => [5, 5, 4, 5, 5]],
+    ["kode" => "C3", "nama" => "IPK", "kolom" => "ipk", "jenis" => "benefit", "nilai" => [5, 5, 5, 5, 5]],
+    ["kode" => "C4", "nama" => "SKS Diambil", "kolom" => "sks_diambil", "jenis" => "benefit", "nilai" => [4, 4, 4, 5, 4]],
+    ["kode" => "C5", "nama" => "SKS Lulus", "kolom" => "sks_lulus", "jenis" => "benefit", "nilai" => [5, 4, 5, 5, 4]],
+    ["kode" => "C6", "nama" => "SKS Nilai Kurang C", "kolom" => "sks_nilai_kurang_c", "jenis" => "cost", "nilai" => [4, 5, 4, 4, 5]],
+    ["kode" => "C7", "nama" => "Jumlah Mengulang", "kolom" => "jml_mengulang", "jenis" => "cost", "nilai" => [5, 5, 4, 5, 5]],
+    ["kode" => "C8", "nama" => "Absensi", "kolom" => "absensi", "jenis" => "cost", "nilai" => [4, 4, 5, 4, 4]],
+    ["kode" => "C9", "nama" => "Sisa Masa Studi", "kolom" => "sisa_masa_studi", "jenis" => "cost", "nilai" => [5, 4, 5, 5, 5]],
+    ["kode" => "C10", "nama" => "Skor TOEFL", "kolom" => "skor_toefl", "jenis" => "benefit", "nilai" => [3, 4, 3, 4, 3]],
+    ["kode" => "C11", "nama" => "Semester", "kolom" => "semester", "jenis" => "cost", "nilai" => [4, 4, 3, 4, 4]]
+];
 
-    mysqli_query($conn, "
-        UPDATE kriteria SET
-            kode_kriteria = '$kode',
-            nama_kriteria = '$nama',
-            kolom_data = '$kolom_data',
-            jenis = '$jenis',
-            bobot = '$bobot'
-        WHERE id_kriteria = '$id'
-    ");
+/* HITUNG RATA-RATA DELPHI */
+$totalRataRata = 0;
 
-    mysqli_query($conn, "
-        INSERT INTO log_aktivitas (aksi, tanggal, id_user)
-        VALUES ('Mengedit kriteria: $nama', NOW(), '{$_SESSION['id_user']}')
-    ");
-
-    header("Location: konfigurasi_kriteria.php");
-    exit;
+foreach ($dataDelphi as $index => $item) {
+    $rata = array_sum($item['nilai']) / count($item['nilai']);
+    $dataDelphi[$index]['rata'] = $rata;
+    $totalRataRata += $rata;
 }
 
-/* SIMPAN SEMUA BOBOT */
-if (isset($_POST['simpan'])) {
-    foreach ($_POST['id_kriteria'] as $index => $id) {
-        $id    = mysqli_real_escape_string($conn, $id);
-        $jenis = mysqli_real_escape_string($conn, $_POST['jenis'][$index]);
-        $bobot = mysqli_real_escape_string($conn, $_POST['bobot'][$index]);
+/* SIMPAN / UPDATE HASIL DELPHI KE DATABASE */
+if ($totalRataRata > 0) {
+    foreach ($dataDelphi as $item) {
+        $kode = mysqli_real_escape_string($conn, $item['kode']);
+        $nama = mysqli_real_escape_string($conn, $item['nama']);
+        $kolom = mysqli_real_escape_string($conn, $item['kolom']);
+        $jenis = mysqli_real_escape_string($conn, $item['jenis']);
+        $bobot = $item['rata'] / $totalRataRata;
 
-        mysqli_query($conn, "
-            UPDATE kriteria SET
-                jenis = '$jenis',
-                bobot = '$bobot'
-            WHERE id_kriteria = '$id'
+        $cek = mysqli_query($conn, "
+            SELECT id_kriteria 
+            FROM kriteria 
+            WHERE kode_kriteria = '$kode'
         ");
+
+        if (mysqli_num_rows($cek) > 0) {
+            mysqli_query($conn, "
+                UPDATE kriteria SET
+                    nama_kriteria = '$nama',
+                    kolom_data = '$kolom',
+                    jenis = '$jenis',
+                    bobot_delphi = '$bobot'
+                WHERE kode_kriteria = '$kode'
+            ");
+        } else {
+            mysqli_query($conn, "
+                INSERT INTO kriteria (
+                    kode_kriteria,
+                    nama_kriteria,
+                    kolom_data,
+                    jenis,
+                    bobot_delphi
+                ) VALUES (
+                    '$kode',
+                    '$nama',
+                    '$kolom',
+                    '$jenis',
+                    '$bobot'
+                )
+            ");
+        }
     }
-
-    mysqli_query($conn, "
-        INSERT INTO log_aktivitas (aksi, tanggal, id_user)
-        VALUES ('Memperbarui bobot kriteria TOPSIS', NOW(), '{$_SESSION['id_user']}')
-    ");
-
-    echo "
-    <script>
-        alert('Bobot kriteria berhasil disimpan!');
-        window.location='konfigurasi_kriteria.php';
-    </script>
-    ";
-    exit;
 }
 
-/* HAPUS KRITERIA */
-if (isset($_GET['hapus'])) {
-    $id = mysqli_real_escape_string($conn, $_GET['hapus']);
-
-    $data = mysqli_fetch_assoc(mysqli_query($conn, "
-        SELECT nama_kriteria FROM kriteria WHERE id_kriteria='$id'
-    "));
-
-    $namaKriteria = $data ? $data['nama_kriteria'] : 'Kriteria';
-
-    mysqli_query($conn, "DELETE FROM kriteria WHERE id_kriteria='$id'");
-
-    mysqli_query($conn, "
-        INSERT INTO log_aktivitas (aksi, tanggal, id_user)
-        VALUES ('Menghapus kriteria: $namaKriteria', NOW(), '{$_SESSION['id_user']}')
-    ");
-
-    header("Location: konfigurasi_kriteria.php");
-    exit;
-}
-
-$editData = null;
-
-if (isset($_GET['edit'])) {
-    $idEdit = mysqli_real_escape_string($conn, $_GET['edit']);
-    $editData = mysqli_fetch_assoc(mysqli_query($conn, "
-        SELECT * FROM kriteria WHERE id_kriteria='$idEdit'
-    "));
-}
-
-/* BOBOT TERTINGGI DI ATAS */
+/* AMBIL KRITERIA BERDASARKAN BOBOT DELPHI TERTINGGI */
 $kriteria = mysqli_query($conn, "
     SELECT * FROM kriteria 
-    ORDER BY bobot DESC, id_kriteria ASC
+    ORDER BY bobot_delphi DESC, id_kriteria ASC
 ");
+
+$totalBobot = 0;
+$totalKriteria = mysqli_num_rows($kriteria);
 ?>
 
 <!DOCTYPE html>
@@ -136,7 +105,6 @@ $kriteria = mysqli_query($conn, "
 
 <div class="dashboard-wrapper">
 
-    <!-- SECTION 1: SIDEBAR -->
     <aside class="section-sidebar">
         <div class="logo-area">
             <img src="../assets/img/logo_psti.jpg" class="sidebar-logo" alt="Logo PSTI">
@@ -152,10 +120,8 @@ $kriteria = mysqli_query($conn, "
         <a href="../logout.php" class="logout-button">LOGOUT</a>
     </aside>
 
-    <!-- AREA KANAN -->
     <main class="dashboard-main">
 
-    <!-- SECTION 2: TOPBAR -->
         <section class="section-topbar">
             <h3>Dashboard</h3>
 
@@ -165,238 +131,86 @@ $kriteria = mysqli_query($conn, "
             </div>
         </section>
 
-        <!-- SECTION 3: KONTEN KRITERIA -->
         <section class="section-content criteria-content">
             <div class="criteria-header">
-                <h2>Manajemen Bobot Kriteria (Metode TOPSIS)</h2>
+                <h2>Konfigurasi Kriteria</h2>
+                <p>
+                    Halaman ini menampilkan seluruh kriteria hasil pembobotan Delphi
+                    yang dihitung otomatis di dalam kode dan digunakan dalam proses TOPSIS dan SAW.
+                </p>
             </div>
 
-            <!-- FORM TAMBAH KRITERIA -->
-            <form method="POST" style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-                <input 
-                    type="hidden" 
-                    name="id_kriteria" 
-                    value="<?php echo $editData ? $editData['id_kriteria'] : ''; ?>"
-                >
+            <table class="data-table criteria-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Kode</th>
+                        <th>Kriteria</th>
+                        <th>Kolom Data</th>
+                        <th>Atribut</th>
+                        <th>Rata-rata Delphi</th>
+                        <th>Bobot Delphi</th>
+                        <th>Persentase</th>
+                        <th>Prioritas</th>
+                    </tr>
+                </thead>
 
-                <input 
-                    type="text" 
-                    name="kode_kriteria" 
-                    class="form-input" 
-                    placeholder="Kode, contoh: C1"
-                    value="<?php echo $editData ? $editData['kode_kriteria'] : ''; ?>"
-                    required
-                >
+                <tbody>
+                    <?php if ($totalKriteria > 0) { ?>
+                        <?php 
+                        $no = 1;
 
-                <input 
-                    type="text" 
-                    name="nama_kriteria" 
-                    class="form-input" 
-                    placeholder="Nama Kriteria"
-                    value="<?php echo $editData ? $editData['nama_kriteria'] : ''; ?>"
-                    required
-                >
+                        while ($row = mysqli_fetch_assoc($kriteria)) { 
+                            $bobot = floatval($row['bobot_delphi']);
+                            $totalBobot += $bobot;
 
-                <select name="kolom_data" class="filter-select">
-
-                    <option value="manual">
-                        Input Manual
-                    </option>
-
-                    <option value="ipk">IPK</option>
-                    <option value="skor_toefl">Skor TOEFL</option>
-                    <option value="jml_mengulang">Jumlah Mengulang</option>
-                    <option value="sks_lulus">SKS Lulus</option>
-                    <option value="sisa_masa_studi">Sisa Masa Studi</option>
-                    <option value="jalur_masuk">Jalur Masuk</option>
-                    <option value="absensi">Absensi</option>
-                    <option value="sks_diambil">SKS Diambil</option>
-                    <option value="sks_nilai_kurang_c">SKS Nilai Kurang C</option>
-
-                </select>
-
-                <select name="jenis" class="filter-select" required>
-                    <option value="benefit" <?php if ($editData && $editData['jenis'] == 'benefit') echo 'selected'; ?>>
-                        Benefit
-                    </option>
-                    <option value="cost" <?php if ($editData && $editData['jenis'] == 'cost') echo 'selected'; ?>>
-                        Cost
-                    </option>
-                </select>
-
-                <input 
-                    type="number" 
-                    step="0.01" 
-                    name="bobot" 
-                    class="form-input" 
-                    placeholder="Bobot, contoh: 0.25"
-                    value="<?php echo $editData ? $editData['bobot'] : ''; ?>"
-                    required
-                >
-
-                <?php if ($editData) { ?>
-                    <button type="submit" name="edit" class="btn-add">
-                        Simpan Edit
-                    </button>
-
-                    <a href="konfigurasi_kriteria.php" class="btn-add" style="text-decoration:none;">
-                        Batal
-                    </a>
-                <?php } else { ?>
-                    <button type="submit" name="tambah" class="btn-add">
-                        + Tambah Kriteria Baru
-                    </button>
-                <?php } ?>
-            </form>
-
-            <!-- FORM UPDATE BOBOT -->
-            <form method="POST" id="formBobot">
-                <table class="data-table criteria-table">
-                    <thead>
+                            $rataDelphi = 0;
+                            foreach ($dataDelphi as $d) {
+                                if ($d['kode'] == $row['kode_kriteria']) {
+                                    $rataDelphi = $d['rata'];
+                                    break;
+                                }
+                            }
+                        ?>
                         <tr>
-                            <th>Kode</th>
-                            <th>Kriteria</th>
-                            <th>Kolom Data</th>
-                            <th>Atribut</th>
-                            <th>Nilai Bobot</th>
-                            <th>Aksi</th>
+                            <td><?php echo $no; ?></td>
+                            <td><?php echo htmlspecialchars($row['kode_kriteria']); ?></td>
+                            <td><?php echo htmlspecialchars($row['nama_kriteria']); ?></td>
+                            <td><?php echo htmlspecialchars($row['kolom_data']); ?></td>
+                            <td><?php echo ucfirst(htmlspecialchars($row['jenis'])); ?></td>
+                            <td><?php echo number_format($rataDelphi, 2); ?></td>
+                            <td><?php echo number_format($bobot, 6); ?></td>
+                            <td><?php echo number_format($bobot * 100, 2); ?>%</td>
+                            <td>Prioritas <?php echo $no; ?></td>
                         </tr>
-                    </thead>
+                        <?php 
+                            $no++;
+                        } 
+                        ?>
+                    <?php } else { ?>
+                        <tr>
+                            <td colspan="9" style="text-align:center;">Belum ada data kriteria</td>
+                        </tr>
+                    <?php } ?>
+                </tbody>
+            </table>
 
-                    <tbody>
-                        <?php if (mysqli_num_rows($kriteria) > 0) { ?>
-                            <?php while ($row = mysqli_fetch_assoc($kriteria)) { ?>
-                            <tr>
-                                <td>
-                                    <?php echo $row['kode_kriteria']; ?>
-                                    <input type="hidden" name="id_kriteria[]" value="<?php echo $row['id_kriteria']; ?>">
-                                </td>
-
-                                <td><?php echo $row['nama_kriteria']; ?></td>
-
-                                <td>
-                                    <?php
-                                    if (
-                                        $row['kolom_data'] == 'manual' ||
-                                        $row['kolom_data'] == ''
-                                    ) {
-                                        echo 'Input Manual';
-                                    } else {
-                                        echo $row['kolom_data'];
-                                    }
-                                    ?>
-                                </td>
-                                
-                                <td>
-                                    <select name="jenis[]" class="filter-select criteria-select">
-                                        <option value="benefit" <?php if ($row['jenis'] == 'benefit') echo 'selected'; ?>>
-                                            Benefit
-                                        </option>
-                                        <option value="cost" <?php if ($row['jenis'] == 'cost') echo 'selected'; ?>>
-                                            Cost
-                                        </option>
-                                    </select>
-                                </td>
-
-                                <td>
-                                    <input 
-                                        type="number" 
-                                        step="0.01" 
-                                        name="bobot[]" 
-                                        class="form-input bobot-input" 
-                                        value="<?php echo $row['bobot']; ?>"
-                                        required
-                                    >
-                                </td>
-
-                                <td>
-                                    <a 
-                                        href="konfigurasi_kriteria.php?edit=<?php echo $row['id_kriteria']; ?>" 
-                                        style="color:#007bff; text-decoration:none; margin-right:10px;"
-                                    >
-                                        Edit
-                                    </a>
-
-                                    <a 
-                                        href="konfigurasi_kriteria.php?hapus=<?php echo $row['id_kriteria']; ?>" 
-                                        onclick="return confirm('Yakin ingin menghapus kriteria ini?')"
-                                        style="color:red; text-decoration:none;"
-                                    >
-                                        Hapus
-                                    </a>
-                                </td>
-                            </tr>
-                            <?php } ?>
-                        <?php } else { ?>
-                            <tr>
-                                <td colspan="6" style="text-align:center;">Belum ada data kriteria</td>
-                            </tr>
-                        <?php } ?>
-                    </tbody>
-                </table>
-
-                <section class="weight-card">
-                    <div>
-                        <h2>
-                            Total Bobot : 
-                            <span id="totalBobot">0.00</span> 
-                            (<span id="persenBobot">0</span>%)
-                            <span id="statusBobot">❌</span>
-                        </h2>
-                        <p>Total bobot harus tepat 1.00 untuk keakuratan model TOPSIS.</p>
-                        <p>Kriteria otomatis diurutkan berdasarkan bobot tertinggi.</p>
-                    </div>
-
-                    <button type="submit" name="simpan" class="save-weight-btn">
-                        Simpan Bobot
-                    </button>
-                </section>
-            </form>
+            <section class="weight-card">
+                <div>
+                    <h2>
+                        Total Bobot :
+                        <?php echo number_format($totalBobot, 6); ?>
+                        (<?php echo number_format($totalBobot * 100, 2); ?>%)
+                        <?php echo (abs($totalBobot - 1.00) < 0.001) ? '✅' : '❌'; ?>
+                    </h2>
+                    <p>Total kriteria: <?php echo $totalKriteria; ?></p>
+                    <p>Bobot Delphi dihitung otomatis dari nilai pakar yang ditanam langsung di dalam kode.</p>
+                </div>
+            </section>
         </section>
 
     </main>
 </div>
-
-<script>
-function hitungTotalBobot() {
-    let inputs = document.querySelectorAll('.bobot-input');
-    let total = 0;
-
-    inputs.forEach(function(input) {
-        total += parseFloat(input.value) || 0;
-    });
-
-    document.getElementById('totalBobot').innerText = total.toFixed(2);
-    document.getElementById('persenBobot').innerText = Math.round(total * 100);
-
-    let status = document.getElementById('statusBobot');
-
-    if (Math.abs(total - 1.00) < 0.001) {
-        status.innerText = '✅';
-    } else {
-        status.innerText = '❌';
-    }
-}
-
-document.querySelectorAll('.bobot-input').forEach(function(input) {
-    input.addEventListener('input', hitungTotalBobot);
-});
-
-document.getElementById('formBobot').addEventListener('submit', function(e) {
-    let total = 0;
-
-    document.querySelectorAll('.bobot-input').forEach(function(input) {
-        total += parseFloat(input.value) || 0;
-    });
-
-    if (Math.abs(total - 1.00) > 0.001) {
-        e.preventDefault();
-        alert('Total bobot harus tepat 1.00 sebelum disimpan.');
-    }
-});
-
-hitungTotalBobot();
-</script>
 
 </body>
 </html>

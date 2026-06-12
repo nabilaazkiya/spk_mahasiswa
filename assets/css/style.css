@@ -485,6 +485,7 @@ body {
     align-items: center;
 }
 
+
 .chart-box {
     display: flex;
     justify-content: center;
@@ -572,6 +573,56 @@ body {
     width: 180px;
     height: 180px;
     position: relative;
+}
+
+/* =========================================================
+   DASHBOARD KAPRODI & DPA - CHART
+========================================================= */
+
+.chart-area {
+    display: grid;
+    grid-template-columns: 45% 55%;
+    gap: 25px;
+    align-items: center;
+    background: #fff;
+    padding: 25px;
+    border-radius: 18px;
+    margin-top: 20px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.chart-box {
+    height: 260px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.pie-container {
+    width: 180px;
+    height: 180px;
+    position: relative;
+    margin: auto;
+}
+
+.scatter-box {
+    background: #fff;
+    padding: 25px;
+    border-radius: 18px;
+    margin-top: 20px;
+    height: 320px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.analysis-text {
+    line-height: 1.8;
+    font-size: 14px;
+}
+
+.detail-button {
+    display: inline-block;
+    margin-top: 15px;
+    text-decoration: none;
 }
 
 /* =========================================================

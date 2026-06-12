@@ -9,113 +9,130 @@ if (!isset($_SESSION['role'])) {
 
 $periode = date('Y-m-d');
 
-/* HAPUS HASIL LAMA */
+/* =============================================
+   1. HAPUS DATA LAMA
+   ============================================= */
 mysqli_query($conn, "DELETE FROM ranking_topsis");
-mysqli_query($conn, "DELETE FROM hasil_evaluasi");
 mysqli_query($conn, "DELETE FROM solusi_ideal");
+mysqli_query($conn, "DELETE FROM hasil_evaluasi");
 
-/* AMBIL DATA MAHASISWA */
+/* =============================================
+   2. AMBIL DATA AKADEMIK TERBARU PER MAHASISWA
+   ============================================= */
 $dataMahasiswa = [];
+
 $qMahasiswa = mysqli_query($conn, "
-    SELECT * FROM data_akademik
+    SELECT da.*
+    FROM data_akademik da
+    INNER JOIN (
+        SELECT nim, MAX(id_data) AS id_data_terbaru
+        FROM data_akademik
+        GROUP BY nim
+    ) terbaru
+    ON da.nim = terbaru.nim
+    AND da.id_data = terbaru.id_data_terbaru
 ");
 
 while ($row = mysqli_fetch_assoc($qMahasiswa)) {
     $dataMahasiswa[] = $row;
 }
 
-/* AMBIL DATA KRITERIA DARI KONFIGURASI ADMIN */
+/* =============================================
+   3. AMBIL KRITERIA + BOBOT
+   ============================================= */
 $dataKriteria = [];
+
 $qKriteria = mysqli_query($conn, "
     SELECT *
     FROM kriteria
-    ORDER BY bobot DESC
+    WHERE kolom_data IS NOT NULL
+    AND kolom_data != ''
+    AND bobot_delphi > 0
+    ORDER BY id_kriteria ASC
 ");
 
 while ($row = mysqli_fetch_assoc($qKriteria)) {
     $dataKriteria[] = $row;
 }
 
-/* VALIDASI DATA */
+/* =============================================
+   VALIDASI DATA
+   ============================================= */
 if (count($dataMahasiswa) == 0) {
     echo "
     <script>
-        alert('Data mahasiswa masih kosong.');
+        alert('Data akademik mahasiswa masih kosong.');
         window.location='../pages/monitoring.php';
-    </script>
-    ";
+    </script>";
     exit;
 }
 
 if (count($dataKriteria) == 0) {
     echo "
     <script>
-        alert('Data kriteria masih kosong atau kolom data belum diatur.');
+        alert('Data kriteria atau bobot Delphi belum tersedia.');
         window.location='../pages/konfigurasi_kriteria.php';
-    </script>
-    ";
+    </script>";
     exit;
 }
 
-/* CEK TOTAL BOBOT */
-$totalBobot = 0;
-foreach ($dataKriteria as $krit) {
-    $totalBobot += floatval($krit['bobot']);
-}
-
-if (abs($totalBobot - 1.00) > 0.001) {
-    echo "
-    <script>
-        alert('Total bobot kriteria harus tepat 1.00 sebelum proses TOPSIS.');
-        window.location='../pages/konfigurasi_kriteria.php';
-    </script>
-    ";
-    exit;
-}
-
-/* FUNGSI AMBIL NILAI BERDASARKAN KOLOM DATA */
-function ambilNilaiKriteria($conn, $mhs, $krit)
+/* =============================================
+   FUNGSI AMBIL NILAI KRITERIA
+   ============================================= */
+function ambilNilaiTopsis($mhs, $kolomData)
 {
-    $kolomData = $krit['kolom_data'];
-
-    if (!empty($kolomData) && $kolomData != 'manual' && isset($mhs[$kolomData])) {
-        return floatval($mhs[$kolomData]);
+    if (!isset($mhs[$kolomData])) {
+        return 0;
     }
 
-    $nim = mysqli_real_escape_string($conn, $mhs['nim']);
-    $idKriteria = mysqli_real_escape_string($conn, $krit['id_kriteria']);
+    $nilai = $mhs[$kolomData];
 
-    $q = mysqli_query($conn, "
-        SELECT nilai
-        FROM nilai_kriteria_tambahan
-        WHERE nim = '$nim'
-        AND id_kriteria = '$idKriteria'
-        LIMIT 1
-    ");
-
-    if ($row = mysqli_fetch_assoc($q)) {
-        return floatval($row['nilai']);
+    if ($nilai === null || $nilai === '') {
+        return 0;
     }
 
-    return 0;
+    if ($kolomData == 'jalur_masuk') {
+        $nilaiLower = strtolower(trim($nilai));
+
+        if ($nilaiLower == 'snbp' || $nilaiLower == 'snmptn') {
+            return 4;
+        } elseif ($nilaiLower == 'snbt' || $nilaiLower == 'sbmptn') {
+            return 3;
+        } elseif ($nilaiLower == 'mandiri') {
+            return 2;
+        } else {
+            return 1;
+        }
+    }
+
+    return floatval($nilai);
 }
 
-/* 1. MATRIKS KEPUTUSAN */
+/* =============================================
+   4. BENTUK MATRIKS KEPUTUSAN
+   ============================================= */
 $matriks = [];
 
 foreach ($dataMahasiswa as $mhs) {
+    $nim = $mhs['nim'];
+
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
-        $matriks[$mhs['nim']][$idKriteria] = ambilNilaiKriteria($conn, $mhs, $krit);
+        $kolomData  = $krit['kolom_data'];
+
+        $matriks[$nim][$idKriteria] = ambilNilaiTopsis($mhs, $kolomData);
     }
 }
 
-/* 2. NORMALISASI */
-$pembagi = [];
+/* =============================================
+   5. NORMALISASI MATRIKS (EUCLIDEAN)
+      r_ij = x_ij / sqrt(sum(x_ij^2))
+   ============================================= */
+$pembagi     = [];
 $normalisasi = [];
 
 foreach ($dataKriteria as $krit) {
-    $idKriteria = $krit['id_kriteria'];
+    $idKriteria   = $krit['id_kriteria'];
     $totalKuadrat = 0;
 
     foreach ($dataMahasiswa as $mhs) {
@@ -123,38 +140,49 @@ foreach ($dataKriteria as $krit) {
     }
 
     $pembagi[$idKriteria] = sqrt($totalKuadrat);
+}
 
-    foreach ($dataMahasiswa as $mhs) {
-        if ($pembagi[$idKriteria] == 0) {
-            $normalisasi[$mhs['nim']][$idKriteria] = 0;
-        } else {
-            $normalisasi[$mhs['nim']][$idKriteria] =
-                $matriks[$mhs['nim']][$idKriteria] / $pembagi[$idKriteria];
-        }
+foreach ($dataMahasiswa as $mhs) {
+    $nim = $mhs['nim'];
+
+    foreach ($dataKriteria as $krit) {
+        $idKriteria = $krit['id_kriteria'];
+
+        $normalisasi[$nim][$idKriteria] =
+            $pembagi[$idKriteria] == 0
+            ? 0
+            : $matriks[$nim][$idKriteria] / $pembagi[$idKriteria];
     }
 }
 
-/* 3. NORMALISASI TERBOBOT */
+/* =============================================
+   6. NORMALISASI TERBOBOT
+      v_ij = w_j * r_ij
+   ============================================= */
 $normalisasiTerbobot = [];
 
 foreach ($dataMahasiswa as $mhs) {
+    $nim = $mhs['nim'];
+
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
-        $bobot = floatval($krit['bobot']);
+        $bobot      = floatval($krit['bobot_delphi']);
 
-        $normalisasiTerbobot[$mhs['nim']][$idKriteria] =
-            $normalisasi[$mhs['nim']][$idKriteria] * $bobot;
+        $normalisasiTerbobot[$nim][$idKriteria] =
+            $normalisasi[$nim][$idKriteria] * $bobot;
     }
 }
 
-/* 4. SOLUSI IDEAL POSITIF DAN NEGATIF */
+/* =============================================
+   7. TENTUKAN SOLUSI IDEAL POSITIF (A+) DAN
+      NEGATIF (A−) LALU SIMPAN KE solusi_ideal
+   ============================================= */
 $solusiPositif = [];
 $solusiNegatif = [];
 
 foreach ($dataKriteria as $krit) {
-    $idKriteria = $krit['id_kriteria'];
-    $jenis = strtolower($krit['jenis']);
-
+    $idKriteria    = $krit['id_kriteria'];
+    $jenis         = strtolower(trim($krit['jenis']));
     $nilaiKriteria = [];
 
     foreach ($dataMahasiswa as $mhs) {
@@ -169,6 +197,10 @@ foreach ($dataKriteria as $krit) {
         $solusiNegatif[$idKriteria] = max($nilaiKriteria);
     }
 
+    /* Simpan ke tabel solusi_ideal */
+    $nilaiPositif = $solusiPositif[$idKriteria];
+    $nilaiNegatif = $solusiNegatif[$idKriteria];
+
     mysqli_query($conn, "
         INSERT INTO solusi_ideal (
             id_kriteria,
@@ -176,114 +208,150 @@ foreach ($dataKriteria as $krit) {
             nilai_negatif
         ) VALUES (
             '$idKriteria',
-            '{$solusiPositif[$idKriteria]}',
-            '{$solusiNegatif[$idKriteria]}'
+            '$nilaiPositif',
+            '$nilaiNegatif'
         )
     ");
 }
 
-/* 5. HITUNG JARAK DAN NILAI PREFERENSI */
+/* =============================================
+   8. HITUNG JARAK D+ DAN D− (EUCLIDEAN)
+      SERTA NILAI PREFERENSI
+      C_i = D− / (D+ + D−)
+   ============================================= */
 $hasilTopsis = [];
 
 foreach ($dataMahasiswa as $mhs) {
+    $nim   = $mhs['nim'];
     $dPlus = 0;
     $dMinus = 0;
 
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
-        $nilai = $normalisasiTerbobot[$mhs['nim']][$idKriteria];
+        $nilai      = $normalisasiTerbobot[$nim][$idKriteria];
 
-        $dPlus += pow($nilai - $solusiPositif[$idKriteria], 2);
+        $dPlus  += pow($nilai - $solusiPositif[$idKriteria], 2);
         $dMinus += pow($nilai - $solusiNegatif[$idKriteria], 2);
     }
 
-    $dPlus = sqrt($dPlus);
+    $dPlus  = sqrt($dPlus);
     $dMinus = sqrt($dMinus);
 
-    $preferensi = 0;
+    $nilaiPreferensi = 0;
 
-    if (($dPlus + $dMinus) != 0) {
-        $preferensi = $dMinus / ($dPlus + $dMinus);
+    if (($dPlus + $dMinus) > 0) {
+        $nilaiPreferensi = $dMinus / ($dPlus + $dMinus);
     }
 
     $hasilTopsis[] = [
-        'nim' => $mhs['nim'],
-        'nilai_preferensi' => $preferensi,
-        'd_plus' => $dPlus,
-        'd_minus' => $dMinus
+        'nim'              => $nim,
+        'nilai_preferensi' => $nilaiPreferensi,
+        'jarak_positif'    => $dPlus,
+        'jarak_negatif'    => $dMinus
     ];
 }
 
-/* 6. URUTKAN RANKING */
+/* =============================================
+   9. URUTKAN RANKING (DESC nilai preferensi)
+   ============================================= */
 usort($hasilTopsis, function ($a, $b) {
-    return $b['nilai_preferensi'] <=> $a['nilai_preferensi'];
+    if ($a['nilai_preferensi'] == $b['nilai_preferensi']) {
+        return 0;
+    }
+    return ($a['nilai_preferensi'] < $b['nilai_preferensi']) ? 1 : -1;
 });
 
-/* 7. SIMPAN HASIL TOPSIS */
+/* =============================================
+   10. SIMPAN KE ranking_topsis
+   ============================================= */
 $ranking = 1;
 
 foreach ($hasilTopsis as $hasil) {
-    $status = 'Aman';
-
-    if ($hasil['nilai_preferensi'] < 0.40) {
-        $status = 'Kritis';
-    } elseif ($hasil['nilai_preferensi'] < 0.60) {
-        $status = 'Waspada';
-    } elseif ($hasil['nilai_preferensi'] >= 0.80) {
-        $status = 'Sangat Baik';
-    }
+    $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
+    $nilaiPreferensi = $hasil['nilai_preferensi'];
+    $jarakPositif    = $hasil['jarak_positif'];
+    $jarakNegatif    = $hasil['jarak_negatif'];
 
     mysqli_query($conn, "
         INSERT INTO ranking_topsis (
             nim,
             nilai_preferensi,
             ranking,
-            periode_evaluasi,
             jarak_positif,
-            jarak_negatif
-        )
-        VALUES (
-            '{$hasil['nim']}',
-            '{$hasil['nilai_preferensi']}',
-            '$ranking',
-            '$periode',
-            '{$hasil['d_plus']}',
-            '{$hasil['d_minus']}'
-        )
-    ");
-
-    mysqli_query($conn, "
-        INSERT INTO hasil_evaluasi (
-            nim,
-            periode_evaluasi,
-            nilai_preferensi,
-            status_early_warning
+            jarak_negatif,
+            periode_evaluasi
         ) VALUES (
-            '{$hasil['nim']}',
-            '$periode',
-            '{$hasil['nilai_preferensi']}',
-            '$status'
+            '$nim',
+            '$nilaiPreferensi',
+            '$ranking',
+            '$jarakPositif',
+            '$jarakNegatif',
+            '$periode'
         )
     ");
 
     $ranking++;
 }
 
-/* LOG AKTIVITAS */
-if (isset($_SESSION['id_user'])) {
+/* =============================================
+   11. SIMPAN KATEGORI KE hasil_evaluasi
+       Threshold Opsi A:
+       0.00 - 0.25 = Kritis
+       0.26 - 0.50 = Waspada
+       0.51 - 0.75 = Aman
+       0.76 - 1.00 = Sangat Baik
+   ============================================= */
+foreach ($hasilTopsis as $hasil) {
+    $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
+    $nilaiPreferensi = $hasil['nilai_preferensi'];
+
+    if ($nilaiPreferensi <= 0.25) {
+        $statusEarlyWarning = 'Kritis';
+    } elseif ($nilaiPreferensi <= 0.50) {
+        $statusEarlyWarning = 'Waspada';
+    } elseif ($nilaiPreferensi <= 0.75) {
+        $statusEarlyWarning = 'Aman';
+    } else {
+        $statusEarlyWarning = 'Sangat Baik';
+    }
+
     mysqli_query($conn, "
-        INSERT INTO log_aktivitas (
-            aksi,
-            tanggal,
-            id_user
+        INSERT INTO hasil_evaluasi (
+            nim,
+            nilai_preferensi,
+            status_early_warning,
+            periode_evaluasi
         ) VALUES (
-            'Menjalankan proses perhitungan TOPSIS',
-            NOW(),
-            '{$_SESSION['id_user']}'
+            '$nim',
+            '$nilaiPreferensi',
+            '$statusEarlyWarning',
+            '$periode'
         )
     ");
 }
 
+/* =============================================
+   12. LOG AKTIVITAS
+   ============================================= */
+if (isset($_SESSION['id_user'])) {
+    $idUser = mysqli_real_escape_string($conn, $_SESSION['id_user']);
+
+    mysqli_query($conn, "
+        INSERT INTO log_aktivitas (
+            id_user,
+            aksi,
+            tanggal
+        ) VALUES (
+            '$idUser',
+            'Menjalankan proses perhitungan TOPSIS',
+            NOW()
+        )
+    ");
+}
+
+/* =============================================
+   13. LANJUT KE PROSES SAW
+   ============================================= */
 header("Location: saw_proses.php");
 exit;
 ?>

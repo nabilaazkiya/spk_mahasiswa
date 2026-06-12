@@ -54,11 +54,13 @@ mysqli_query($conn, "
     INSERT INTO uji_spearman (
         rs,
         keterangan,
-        preferensi_model
+        preferensi_model,
+        tanggal_uji
     ) VALUES (
         '$rs',
         '$keterangan',
-        '$preferensiModel'
+        '$preferensiModel',
+        NOW()
     )
 ");
 
