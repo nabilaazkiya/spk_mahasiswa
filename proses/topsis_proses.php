@@ -4,7 +4,7 @@ include "../config/database.php";
 
 if (!isset($_SESSION['role'])) {
     header("Location: ../login.php");
-    exit;
+    exit; 
 }
 
 $periode = date('Y-m-d');
@@ -77,6 +77,27 @@ if (count($dataKriteria) == 0) {
 }
 
 /* =============================================
+   FUNGSI BANTUAN: AMANKAN NILAI NUMERIK
+   Mengubah NAN / INF / -INF menjadi 0 agar
+   tidak pernah gagal disimpan ke kolom DECIMAL
+   di database (yang akan membuatnya NULL diam-diam).
+   ============================================= */
+function amankanNilai($nilai)
+{
+    if (!is_numeric($nilai)) {
+        return 0;
+    }
+
+    $nilai = floatval($nilai);
+
+    if (is_nan($nilai) || is_infinite($nilai)) {
+        return 0;
+    }
+
+    return $nilai;
+}
+
+/* =============================================
    FUNGSI AMBIL NILAI KRITERIA
    ============================================= */
 function ambilNilaiTopsis($mhs, $kolomData)
@@ -105,6 +126,13 @@ function ambilNilaiTopsis($mhs, $kolomData)
         }
     }
 
+    /* Jika nilai bukan numerik (misal ada teks tersisip di kolom
+       yang seharusnya angka), amankan menjadi 0 alih-alih
+       membiarkan floatval() menghasilkan nilai tak terduga. */
+    if (!is_numeric($nilai)) {
+        return 0;
+    }
+
     return floatval($nilai);
 }
 
@@ -120,7 +148,9 @@ foreach ($dataMahasiswa as $mhs) {
         $idKriteria = $krit['id_kriteria'];
         $kolomData  = $krit['kolom_data'];
 
-        $matriks[$nim][$idKriteria] = ambilNilaiTopsis($mhs, $kolomData);
+        $matriks[$nim][$idKriteria] = amankanNilai(
+            ambilNilaiTopsis($mhs, $kolomData)
+        );
     }
 }
 
@@ -139,7 +169,7 @@ foreach ($dataKriteria as $krit) {
         $totalKuadrat += pow($matriks[$mhs['nim']][$idKriteria], 2);
     }
 
-    $pembagi[$idKriteria] = sqrt($totalKuadrat);
+    $pembagi[$idKriteria] = amankanNilai(sqrt($totalKuadrat));
 }
 
 foreach ($dataMahasiswa as $mhs) {
@@ -148,10 +178,11 @@ foreach ($dataMahasiswa as $mhs) {
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
 
-        $normalisasi[$nim][$idKriteria] =
+        $normalisasi[$nim][$idKriteria] = amankanNilai(
             $pembagi[$idKriteria] == 0
             ? 0
-            : $matriks[$nim][$idKriteria] / $pembagi[$idKriteria];
+            : $matriks[$nim][$idKriteria] / $pembagi[$idKriteria]
+        );
     }
 }
 
@@ -166,10 +197,11 @@ foreach ($dataMahasiswa as $mhs) {
 
     foreach ($dataKriteria as $krit) {
         $idKriteria = $krit['id_kriteria'];
-        $bobot      = floatval($krit['bobot_delphi']);
+        $bobot      = amankanNilai($krit['bobot_delphi']);
 
-        $normalisasiTerbobot[$nim][$idKriteria] =
-            $normalisasi[$nim][$idKriteria] * $bobot;
+        $normalisasiTerbobot[$nim][$idKriteria] = amankanNilai(
+            $normalisasi[$nim][$idKriteria] * $bobot
+        );
     }
 }
 
@@ -190,18 +222,18 @@ foreach ($dataKriteria as $krit) {
     }
 
     if ($jenis == 'benefit') {
-        $solusiPositif[$idKriteria] = max($nilaiKriteria);
-        $solusiNegatif[$idKriteria] = min($nilaiKriteria);
+        $solusiPositif[$idKriteria] = amankanNilai(max($nilaiKriteria));
+        $solusiNegatif[$idKriteria] = amankanNilai(min($nilaiKriteria));
     } else {
-        $solusiPositif[$idKriteria] = min($nilaiKriteria);
-        $solusiNegatif[$idKriteria] = max($nilaiKriteria);
+        $solusiPositif[$idKriteria] = amankanNilai(min($nilaiKriteria));
+        $solusiNegatif[$idKriteria] = amankanNilai(max($nilaiKriteria));
     }
 
     /* Simpan ke tabel solusi_ideal */
     $nilaiPositif = $solusiPositif[$idKriteria];
     $nilaiNegatif = $solusiNegatif[$idKriteria];
 
-    mysqli_query($conn, "
+    $insertSolusi = mysqli_query($conn, "
         INSERT INTO solusi_ideal (
             id_kriteria,
             nilai_positif,
@@ -212,6 +244,10 @@ foreach ($dataKriteria as $krit) {
             '$nilaiNegatif'
         )
     ");
+
+    if (!$insertSolusi) {
+        error_log("Gagal INSERT solusi_ideal untuk id_kriteria=$idKriteria: " . mysqli_error($conn));
+    }
 }
 
 /* =============================================
@@ -219,7 +255,8 @@ foreach ($dataKriteria as $krit) {
       SERTA NILAI PREFERENSI
       C_i = D− / (D+ + D−)
    ============================================= */
-$hasilTopsis = [];
+$hasilTopsis  = [];
+$nimBermasalah = [];
 
 foreach ($dataMahasiswa as $mhs) {
     $nim   = $mhs['nim'];
@@ -237,10 +274,22 @@ foreach ($dataMahasiswa as $mhs) {
     $dPlus  = sqrt($dPlus);
     $dMinus = sqrt($dMinus);
 
+    /* ── VALIDASI DEFENSIF ──
+       Jika hasil perhitungan menghasilkan NaN atau INF (misal akibat
+       data akademik yang tidak normal), catat sebagai mahasiswa
+       bermasalah dan amankan nilainya menjadi 0 alih-alih membiarkan
+       MySQL menyimpannya sebagai NULL secara diam-diam. */
+    if (is_nan($dPlus) || is_infinite($dPlus) || is_nan($dMinus) || is_infinite($dMinus)) {
+        $nimBermasalah[] = $nim;
+    }
+
+    $dPlus  = amankanNilai($dPlus);
+    $dMinus = amankanNilai($dMinus);
+
     $nilaiPreferensi = 0;
 
     if (($dPlus + $dMinus) > 0) {
-        $nilaiPreferensi = $dMinus / ($dPlus + $dMinus);
+        $nilaiPreferensi = amankanNilai($dMinus / ($dPlus + $dMinus));
     }
 
     $hasilTopsis[] = [
@@ -265,6 +314,7 @@ usort($hasilTopsis, function ($a, $b) {
    10. SIMPAN KE ranking_topsis
    ============================================= */
 $ranking = 1;
+$gagalSimpanRanking = [];
 
 foreach ($hasilTopsis as $hasil) {
     $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
@@ -272,7 +322,7 @@ foreach ($hasilTopsis as $hasil) {
     $jarakPositif    = $hasil['jarak_positif'];
     $jarakNegatif    = $hasil['jarak_negatif'];
 
-    mysqli_query($conn, "
+    $insertRanking = mysqli_query($conn, "
         INSERT INTO ranking_topsis (
             nim,
             nilai_preferensi,
@@ -289,6 +339,11 @@ foreach ($hasilTopsis as $hasil) {
             '$periode'
         )
     ");
+
+    if (!$insertRanking) {
+        $gagalSimpanRanking[] = $nim;
+        error_log("Gagal INSERT ranking_topsis untuk nim=$nim: " . mysqli_error($conn));
+    }
 
     $ranking++;
 }
@@ -315,7 +370,7 @@ foreach ($hasilTopsis as $hasil) {
         $statusEarlyWarning = 'Sangat Baik';
     }
 
-    mysqli_query($conn, "
+    $insertEvaluasi = mysqli_query($conn, "
         INSERT INTO hasil_evaluasi (
             nim,
             nilai_preferensi,
@@ -328,6 +383,10 @@ foreach ($hasilTopsis as $hasil) {
             '$periode'
         )
     ");
+
+    if (!$insertEvaluasi) {
+        error_log("Gagal INSERT hasil_evaluasi untuk nim=$nim: " . mysqli_error($conn));
+    }
 }
 
 /* =============================================
@@ -336,6 +395,18 @@ foreach ($hasilTopsis as $hasil) {
 if (isset($_SESSION['id_user'])) {
     $idUser = mysqli_real_escape_string($conn, $_SESSION['id_user']);
 
+    $aksiLog = 'Menjalankan proses perhitungan TOPSIS';
+
+    /* Jika ada mahasiswa yang nilainya bermasalah (NaN/INF terdeteksi)
+       saat perhitungan, catat di log aktivitas agar bisa ditelusuri
+       tanpa perlu mengubah struktur tabel apapun. */
+    if (!empty($nimBermasalah)) {
+        $daftarNim = implode(', ', array_unique($nimBermasalah));
+        $aksiLog  .= " (Peringatan: ditemukan nilai tidak valid pada NIM: $daftarNim, nilai diamankan ke 0)";
+    }
+
+    $aksiLogEscaped = mysqli_real_escape_string($conn, $aksiLog);
+
     mysqli_query($conn, "
         INSERT INTO log_aktivitas (
             id_user,
@@ -343,7 +414,7 @@ if (isset($_SESSION['id_user'])) {
             tanggal
         ) VALUES (
             '$idUser',
-            'Menjalankan proses perhitungan TOPSIS',
+            '$aksiLogEscaped',
             NOW()
         )
     ");

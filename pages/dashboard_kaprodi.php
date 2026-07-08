@@ -38,118 +38,9 @@ $sangatBaik = mysqli_fetch_assoc(mysqli_query($conn, "
     WHERE status_early_warning='Sangat Baik'
 "));
 
-/* =========================
-   DATA SCATTER TOPSIS
-========================= */
+include "../includes/scatter_helper.php";
 
-$dataMahasiswa = [];
-$qMahasiswa = mysqli_query($conn, "SELECT * FROM data_akademik");
-
-while ($row = mysqli_fetch_assoc($qMahasiswa)) {
-    $dataMahasiswa[] = $row;
-}
-
-$dataKriteria = [];
-$qKriteria = mysqli_query($conn, "
-    SELECT * FROM kriteria 
-    WHERE kolom_data IS NOT NULL 
-    AND kolom_data != ''
-    ORDER BY bobot_delphi DESC
-");
-
-while ($row = mysqli_fetch_assoc($qKriteria)) {
-    $dataKriteria[] = $row;
-}
-
-function ambilNilaiKriteriaDashboard($mhs, $kolomData)
-{
-    return isset($mhs[$kolomData]) ? floatval($mhs[$kolomData]) : 0;
-}
-
-$scatterData = [];
-
-if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
-
-    $matriks = [];
-    $normalisasi = [];
-    $normalisasiTerbobot = [];
-    $pembagi = [];
-    $solusiPositif = [];
-    $solusiNegatif = [];
-
-    foreach ($dataMahasiswa as $mhs) {
-        foreach ($dataKriteria as $krit) {
-            $idKriteria = $krit['id_kriteria'];
-            $kolomData = $krit['kolom_data'];
-
-            $matriks[$mhs['nim']][$idKriteria] = ambilNilaiKriteriaDashboard($mhs, $kolomData);
-        }
-    }
-
-    foreach ($dataKriteria as $krit) {
-        $idKriteria = $krit['id_kriteria'];
-        $totalKuadrat = 0;
-
-        foreach ($dataMahasiswa as $mhs) {
-            $totalKuadrat += pow($matriks[$mhs['nim']][$idKriteria], 2);
-        }
-
-        $pembagi[$idKriteria] = sqrt($totalKuadrat);
-
-        foreach ($dataMahasiswa as $mhs) {
-            $normalisasi[$mhs['nim']][$idKriteria] =
-                $pembagi[$idKriteria] == 0
-                ? 0
-                : $matriks[$mhs['nim']][$idKriteria] / $pembagi[$idKriteria];
-        }
-    }
-
-    foreach ($dataMahasiswa as $mhs) {
-        foreach ($dataKriteria as $krit) {
-            $idKriteria = $krit['id_kriteria'];
-            $bobot = floatval($krit['bobot_delphi']);
-
-            $normalisasiTerbobot[$mhs['nim']][$idKriteria] =
-                $normalisasi[$mhs['nim']][$idKriteria] * $bobot;
-        }
-    }
-
-    foreach ($dataKriteria as $krit) {
-        $idKriteria = $krit['id_kriteria'];
-        $jenis = strtolower($krit['jenis']);
-        $nilaiKriteria = [];
-
-        foreach ($dataMahasiswa as $mhs) {
-            $nilaiKriteria[] = $normalisasiTerbobot[$mhs['nim']][$idKriteria];
-        }
-
-        if ($jenis == 'benefit') {
-            $solusiPositif[$idKriteria] = max($nilaiKriteria);
-            $solusiNegatif[$idKriteria] = min($nilaiKriteria);
-        } else {
-            $solusiPositif[$idKriteria] = min($nilaiKriteria);
-            $solusiNegatif[$idKriteria] = max($nilaiKriteria);
-        }
-    }
-
-    foreach ($dataMahasiswa as $mhs) {
-        $dPlus = 0;
-        $dMinus = 0;
-
-        foreach ($dataKriteria as $krit) {
-            $idKriteria = $krit['id_kriteria'];
-            $nilai = $normalisasiTerbobot[$mhs['nim']][$idKriteria];
-
-            $dPlus += pow($nilai - $solusiPositif[$idKriteria], 2);
-            $dMinus += pow($nilai - $solusiNegatif[$idKriteria], 2);
-        }
-
-        $scatterData[] = [
-            'x' => round(sqrt($dPlus), 4),
-            'y' => round(sqrt($dMinus), 4)
-        ];
-    }
-}
+$scatterData = ambilDataScatter($conn);
 ?>
 
 <!DOCTYPE html>
@@ -161,6 +52,9 @@ if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="../assets/js/scatter_chart.js"></script>
 
 </head>
 <body>
@@ -284,6 +178,14 @@ if (count($dataMahasiswa) > 0 && count($dataKriteria) > 0) {
         <section class="scatter-box">
             <h4 style="text-align:center;">Sebaran Mahasiswa terhadap Solusi Ideal TOPSIS</h4>
             <canvas id="scatterChart"></canvas>
+            <div style="text-align:right;margin-top:8px;">
+                <button id="btnResetZoomKaprodi" style="padding:4px 12px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#f8f9fa;cursor:pointer;">
+                    🔍 Reset Zoom
+                </button>
+            </div>
+            <small style="color:#888;display:block;margin-top:4px;text-align:center;">
+                Gunakan scroll mouse untuk zoom, klik+geser untuk pan, klik titik untuk detail mahasiswa.
+            </small>
         </section>
 
     </main>
@@ -330,43 +232,16 @@ new Chart(pieCtx, {
     }
 });
 
-const scatterCtx = document.getElementById('scatterChart');
+var scatterDataKaprodi = <?php echo json_encode($scatterData); ?>;
 
-new Chart(scatterCtx, {
-    type: 'scatter',
-    data: {
-        datasets: [{
-            label: 'Mahasiswa',
-            data: <?php echo json_encode($scatterData); ?>,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            backgroundColor: '#08003a'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            tooltip: {
-                enabled: false
-            }
-        },
-        scales: {
-            x: {
-                title: {
-                    display: true,
-                    text: 'Jarak ke Solusi Ideal Positif (D+)'
-                }
-            },
-            y: {
-                title: {
-                    display: true,
-                    text: 'Jarak ke Solusi Ideal Negatif (D-)'
-                }
-            }
-        }
+renderScatterChart(
+    'scatterChart',
+    scatterDataKaprodi,
+    'btnResetZoomKaprodi',
+    function(titik) {
+        window.location.href = 'detail_mahasiswa.php?nim=' + encodeURIComponent(titik.nim);
     }
-});
+);
 </script>
 
 </body>

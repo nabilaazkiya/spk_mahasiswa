@@ -14,15 +14,15 @@ if ($nim == '') {
     exit;
 }
 
-$backPage = ($_SESSION['role'] == 'dpa') ? 'monitoring_dpa.php' : 'monitoring.php';
+$backPage      = ($_SESSION['role'] == 'dpa') ? 'monitoring_dpa.php' : 'monitoring.php';
 $dashboardPage = ($_SESSION['role'] == 'dpa') ? 'dashboard_dpa.php' : 'dashboard_kaprodi.php';
-$roleLabel = ($_SESSION['role'] == 'dpa') ? 'Dosen PA' : 'Kaprodi';
+$roleLabel     = ($_SESSION['role'] == 'dpa') ? 'Dosen PA' : 'Kaprodi';
 
 $whereDpa = "";
 
 if ($_SESSION['role'] == 'dpa') {
-    $namaDpa = mysqli_real_escape_string($conn, $_SESSION['nama_lengkap']);
-    $whereDpa = " AND d.dosen_pa = '$namaDpa'";
+    $idDpa    = mysqli_real_escape_string($conn, $_SESSION['id_user']);
+    $whereDpa = " AND m.id_user = '$idDpa'";
 }
 
 $query = mysqli_query($conn, "
@@ -37,6 +37,7 @@ $query = mysqli_query($conn, "
 
         h.status_early_warning
     FROM data_akademik d
+    INNER JOIN mahasiswa m ON d.nim = m.nim
     LEFT JOIN ranking_topsis r ON d.nim = r.nim
     LEFT JOIN ranking_saw s ON d.nim = s.nim
     LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
@@ -81,29 +82,12 @@ while ($r = mysqli_fetch_assoc($riwayatQuery)) {
     $dataIpk[] = floatval($r['ipk']);
 }
 
-/* DATA SCATTER TOPSIS */
-$scatterSelected = [];
+/* =============================================
+   DATA SCATTER TOPSIS (menggunakan helper bersama)
+   ============================================= */
+include "../includes/scatter_helper.php";
 
-$scatterQuery = mysqli_query($conn, "
-    SELECT 
-        nim,
-        jarak_positif,
-        jarak_negatif
-    FROM ranking_topsis
-    WHERE nim = '$nim'
-    AND jarak_positif IS NOT NULL
-    AND jarak_negatif IS NOT NULL
-    LIMIT 1
-");
-
-$scatterData = mysqli_fetch_assoc($scatterQuery);
-
-if ($scatterData) {
-    $scatterSelected[] = [
-        'x' => round(floatval($scatterData['jarak_positif']), 4),
-        'y' => round(floatval($scatterData['jarak_negatif']), 4)
-    ];
-}
+$scatterSelected = ambilDataScatter($conn, "AND r.nim = '$nim'");
 
 $status = $data['status_early_warning'] ?? 'Belum Diproses';
 $statusClass = 'status-aktif';
@@ -126,6 +110,9 @@ if (strtolower($status) == 'kritis') {
     <title>Detail Mahasiswa</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="../assets/js/scatter_chart.js"></script>
 </head>
 
 <body>
@@ -230,7 +217,22 @@ if (strtolower($status) == 'kritis') {
 
         <section class="chart-detail-box">
             <h3>Posisi Mahasiswa terhadap Solusi Ideal TOPSIS</h3>
-            <canvas id="grafikTopsis"></canvas>
+            <?php if (!empty($scatterSelected)): ?>
+                <canvas id="grafikTopsis"></canvas>
+                <div style="text-align:right;margin-top:8px;">
+                    <button id="btnResetZoom" style="padding:4px 12px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#f8f9fa;cursor:pointer;">
+                        🔍 Reset Zoom
+                    </button>
+                </div>
+                <small style="color:#888;display:block;margin-top:4px;">
+                    Gunakan scroll mouse untuk zoom, klik+geser untuk pan, klik titik untuk detail.
+                </small>
+            <?php else: ?>
+                <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;">
+                    <span style="font-size:24px;">&#128202;</span>
+                    <span>Data belum tersedia. Proses TOPSIS belum dijalankan.</span>
+                </div>
+            <?php endif; ?>
         </section>
 
         <section class="info-table-box">
@@ -261,6 +263,121 @@ if (strtolower($status) == 'kritis') {
                     </tr>
                 </tbody>
             </table>
+
+            <br>
+
+            <!-- ═══════════════════════════════════════
+                 KESIMPULAN KATEGORI MAHASISWA
+                 ═══════════════════════════════════════ -->
+            <?php
+            $nilaiPref   = isset($data['nilai_topsis']) ? floatval($data['nilai_topsis']) : null;
+            $rankingMhs  = $data['ranking_topsis'] ?? null;
+            $statusLabel = $data['status_early_warning'] ?? null;
+
+            if ($nilaiPref !== null && $statusLabel !== null):
+
+                /* Warna badge sesuai kategori */
+                $warnaBg = [
+                    'Kritis'      => '#fdecea',
+                    'Waspada'     => '#fff8e1',
+                    'Aman'        => '#e8f5e9',
+                    'Sangat Baik' => '#e0f2f1'
+                ];
+                $warnaBorder = [
+                    'Kritis'      => '#e74c3c',
+                    'Waspada'     => '#f39c12',
+                    'Aman'        => '#2ecc71',
+                    'Sangat Baik' => '#27ae60'
+                ];
+                $warnaIkon = [
+                    'Kritis'      => '🔴',
+                    'Waspada'     => '🟠',
+                    'Aman'        => '🟢',
+                    'Sangat Baik' => '✅'
+                ];
+                $rekomendasiMap = [
+                    'Kritis'      => 'Mahasiswa memerlukan perhatian segera. Dosen PA disarankan untuk segera melakukan konsultasi akademik, mengevaluasi beban studi, dan mempertimbangkan program pendampingan intensif.',
+                    'Waspada'     => 'Mahasiswa perlu dipantau secara berkala. Dosen PA disarankan untuk menjadwalkan konsultasi rutin dan membantu mahasiswa mengidentifikasi kendala akademik yang dihadapi.',
+                    'Aman'        => 'Kondisi akademik mahasiswa cukup baik. Dosen PA disarankan untuk mempertahankan motivasi dan mendorong peningkatan performa di semester berikutnya.',
+                    'Sangat Baik' => 'Kondisi akademik mahasiswa sangat baik. Dosen PA disarankan untuk mendorong mahasiswa mengikuti kegiatan akademik atau penelitian yang lebih menantang.'
+                ];
+
+                $bg          = $warnaBg[$statusLabel]     ?? '#f8f9fa';
+                $border      = $warnaBorder[$statusLabel] ?? '#ccc';
+                $ikon        = $warnaIkon[$statusLabel]    ?? 'ℹ️';
+                $rekomendasi = $rekomendasiMap[$statusLabel] ?? '-';
+
+                /* Faktor akademik yang berkontribusi */
+                $faktor = [];
+                if (!empty($data['ipk']))               $faktor[] = 'IPK: ' . number_format($data['ipk'], 2);
+                if (!empty($data['sks_lulus']))          $faktor[] = 'SKS Lulus: ' . $data['sks_lulus'];
+                if (!empty($data['absensi']))            $faktor[] = 'Absensi: ' . $data['absensi'] . '%';
+                if (!empty($data['jml_mengulang']))      $faktor[] = 'Jumlah Mengulang: ' . $data['jml_mengulang'];
+                if (!empty($data['sks_nilai_kurang_c'])) $faktor[] = 'SKS Nilai < C: ' . $data['sks_nilai_kurang_c'];
+                if (!empty($data['sisa_masa_studi']))    $faktor[] = 'Sisa Masa Studi: ' . $data['sisa_masa_studi'] . ' semester';
+                if (!empty($data['skor_toefl']))         $faktor[] = 'Skor TOEFL: ' . $data['skor_toefl'];
+            ?>
+
+            <div style="
+                background: <?php echo $bg; ?>;
+                border-left: 4px solid <?php echo $border; ?>;
+                border-radius: 8px;
+                padding: 18px 20px;
+                margin-top: 20px;
+                font-family: Arial, sans-serif;
+            ">
+                <h4 style="margin:0 0 12px 0;font-size:15px;color:#333;">
+                    <?php echo $ikon; ?> Kesimpulan Evaluasi Akademik
+                </h4>
+
+                <table style="width:100%;border-collapse:collapse;font-size:13px;color:#444;">
+                    <tr>
+                        <td style="padding:4px 0;width:180px;font-weight:bold;">Kategori</td>
+                        <td style="padding:4px 0;">:&nbsp;
+                            <span style="font-weight:bold;color:<?php echo $border; ?>;">
+                                <?php echo $statusLabel; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:4px 0;font-weight:bold;">Nilai Preferensi TOPSIS</td>
+                        <td style="padding:4px 0;">:&nbsp;<?php echo number_format($nilaiPref, 4); ?></td>
+                    </tr>
+                    <?php if ($rankingMhs): ?>
+                    <tr>
+                        <td style="padding:4px 0;font-weight:bold;">Ranking</td>
+                        <td style="padding:4px 0;">:&nbsp;#<?php echo $rankingMhs; ?></td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php if (!empty($faktor)): ?>
+                    <tr>
+                        <td style="padding:4px 0;font-weight:bold;vertical-align:top;">Faktor Akademik</td>
+                        <td style="padding:4px 0;">:&nbsp;<?php echo implode(' &nbsp;|&nbsp; ', $faktor); ?></td>
+                    </tr>
+                    <?php endif; ?>
+                    <tr>
+                        <td style="padding:10px 0 4px 0;font-weight:bold;vertical-align:top;">Rekomendasi</td>
+                        <td style="padding:10px 0 4px 0;">:&nbsp;<?php echo $rekomendasi; ?></td>
+                    </tr>
+                </table>
+            </div>
+
+            <?php else: ?>
+
+            <div style="
+                background: #f8f9fa;
+                border-left: 4px solid #ccc;
+                border-radius: 8px;
+                padding: 18px 20px;
+                margin-top: 20px;
+                font-family: Arial, sans-serif;
+                color: #6c757d;
+                font-size: 13px;
+            ">
+                ℹ️ Kesimpulan belum dapat ditampilkan karena proses TOPSIS belum dijalankan untuk mahasiswa ini.
+            </div>
+
+            <?php endif; ?>
 
             <br>
 
@@ -296,47 +413,13 @@ new Chart(document.getElementById('grafikIpk'), {
     }
 });
 
-new Chart(document.getElementById('grafikTopsis'), {
-    type: 'scatter',
-    data: {
-        datasets: [
-            {
-                label: 'Posisi Mahasiswa',
-                data: <?php echo json_encode($scatterSelected); ?>,
-                pointRadius: 9,
-                pointHoverRadius: 11,
-                backgroundColor: '#ff0000'
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
+<?php if (!empty($scatterSelected)): ?>
 
-        plugins: {
-            legend: {
-                position: 'top'
-            }
-        },
+var scatterDataDetail = <?php echo json_encode($scatterSelected); ?>;
 
-        scales: {
-            x: {
-                title: {
-                    display: true,
-                    text: 'Jarak ke Solusi Ideal Positif (D+)'
-                },
-                beginAtZero: true
-            },
-            y: {
-                title: {
-                    display: true,
-                    text: 'Jarak ke Solusi Ideal Negatif (D-)'
-                },
-                beginAtZero: true
-            }
-        }
-    }
-});
+renderScatterChart('grafikTopsis', scatterDataDetail, 'btnResetZoom');
+
+<?php endif; ?>
 </script>
 
 </body>
