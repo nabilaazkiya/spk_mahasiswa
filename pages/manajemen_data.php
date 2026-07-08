@@ -117,7 +117,7 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
 
             <div class="sync-info">
                 <span>Sumber : Data SIA Terintegrasi (Terpisah)</span>
-                <span class="sync-date">● SIA Sync: 10/03/26</span>
+                <!-- <span class="sync-date">● SIA Sync: 10/03/26</span> -->
             </div>
 
             <table class="data-table">
@@ -128,7 +128,7 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                         <th>Nama</th>
                         <th>Peran (Role)</th>
                         <th>Status (SIA)</th>
-                        <th>Dosen PA (mhs)</th>
+                        <!-- <th>Dosen PA (mhs)</th> -->
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -149,7 +149,7 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                                 <?php echo $row['status_sia']; ?>
                             </span>
                         </td>
-                        <td>N/A</td>
+                        <!-- <td>N/A</td> -->
                         <td>
                             <a href="edit_user.php?id=<?php echo $row['id_user']; ?>" class="action-edit" title="Edit">
                                 <i class="fa-solid fa-pen"></i>

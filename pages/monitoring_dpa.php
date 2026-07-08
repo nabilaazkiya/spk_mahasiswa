@@ -102,10 +102,10 @@ $totalData = mysqli_num_rows($query);
 
                 <div class="sort-select-wrapper">
                     <select name="sort" class="sort-select" onchange="this.form.submit()">
-                        <option value="ranking" <?php if ($sort == 'ranking') echo 'selected'; ?>>Ranking</option>
+                        <!-- <option value="ranking" <?php if ($sort == 'ranking') echo 'selected'; ?>>Ranking</option> -->
                         <option value="ipk" <?php if ($sort == 'ipk') echo 'selected'; ?>>IPK</option>
                         <option value="skor" <?php if ($sort == 'skor') echo 'selected'; ?>>Skor TOPSIS</option>
-                        <option value="status" <?php if ($sort == 'status') echo 'selected'; ?>>Status</option>
+                        <!-- <option value="status" <?php if ($sort == 'status') echo 'selected'; ?>>Status</option> -->
                     </select>
                 </div>
             </div>
