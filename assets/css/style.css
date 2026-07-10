@@ -635,6 +635,7 @@ body {
 
 .data-table {
     width: 100%;
+    min-width: max-content;
     border-collapse: collapse;
     margin-top: 10px;
     font-size: 14px;
@@ -648,11 +649,26 @@ body {
     color: #000000;
     border-top: 1px solid #e5e7eb;
     border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
 }
 
 .data-table td {
     padding: 12px;
     border-bottom: 1px solid #f0f0f0;
+    white-space: nowrap;
+}
+
+/* PERBAIKAN BUG: tabel dengan banyak kolom (misal Data Akademik
+   Mahasiswa, 15 kolom) sebelumnya dipaksa muat ke lebar container
+   (width:100% tanpa wrapper scroll), membuat teks jadi sangat
+   sempit/terpotong dan scrollbar muncul di level HALAMAN, bukan
+   di level tabel saja (kehilangan konteks header/sidebar saat
+   di-scroll). Wrapper ini membuat SCROLL HORIZONTAL terkontainer
+   hanya pada tabelnya, dengan kolom tetap terbaca jelas. */
+.table-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 
@@ -1347,8 +1363,50 @@ DETAIL MAHASISWA
         border-radius: 18px;
         padding: 25px;
         margin-bottom: 20px;
-        height: 360px;
         box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+
+    .chart-detail-box h3 {
+        margin-top: 0;
+        margin-bottom: 16px;
+        word-wrap: break-word;
+    }
+
+    /* PERBAIKAN BUG: sebelumnya .chart-detail-box punya
+       height:360px TETAP, sementara beberapa section (scatter
+       chart TOPSIS) punya konten lebih tinggi dari itu (judul +
+       canvas + tombol reset zoom + teks bantuan) - kontennya
+       tumpah ke luar box dan TERTIMPA oleh section berikutnya.
+
+       Sekarang .chart-detail-box menyesuaikan tinggi ke konten
+       (auto), sementara canvas dibungkus wrapper terpisah yang
+       punya tinggi tetap (dibutuhkan Chart.js karena pakai
+       maintainAspectRatio:false). */
+    .chart-canvas-wrapper {
+        position: relative;
+        width: 100%;
+        height: 280px;
+    }
+
+    .chart-canvas-wrapper canvas {
+        max-width: 100%;
+    }
+
+    .chart-empty-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        height: 200px;
+        background: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        color: #6c757d;
+        font-size: 14px;
+        text-align: center;
+        padding: 16px;
+        box-sizing: border-box;
     }
 
     .info-table-box {
@@ -1357,6 +1415,7 @@ DETAIL MAHASISWA
         padding: 25px;
         margin-bottom: 20px;
         box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+        overflow-x: auto;
     }
 
 
@@ -1389,5 +1448,42 @@ DETAIL MAHASISWA
     .btn-secondary,
     .btn-import {
         width: 100%;
+    }
+
+    /* PERBAIKAN RESPONSIVE: canvas grafik lebih pendek di layar
+       kecil supaya tidak memakan terlalu banyak ruang scroll,
+       dan heading/section tidak memaksa lebar minimum yang
+       menyebabkan elemen lain terdorong keluar. */
+    .chart-canvas-wrapper {
+        height: 220px;
+    }
+
+    .chart-detail-box h3,
+    .info-table-box h3 {
+        font-size: 16px;
+    }
+
+    .detail-card p {
+        font-size: 24px;
+    }
+
+    .section-summary .detail-card,
+    .dpa-category-grid .summary-card {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .chart-canvas-wrapper {
+        height: 180px;
+    }
+
+    .data-table {
+        font-size: 12px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 8px;
     }
 }

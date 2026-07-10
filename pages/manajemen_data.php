@@ -38,7 +38,7 @@ if ($role != '') {
 
 $userQuery = mysqli_query($conn, "SELECT * FROM user $whereUser ORDER BY id_user DESC");
 
-$akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik ORDER BY id_data DESC");
+$akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik_terbaru $whereAkademik ORDER BY id_data DESC");
 ?>
 
 <!DOCTYPE html>
@@ -103,12 +103,12 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                 <a href="tambah_user.php" class="btn-add">+ Tambah Pengguna Baru</a>
 
                 <form method="POST" action="../proses/input_data.php" enctype="multipart/form-data">
-                    <label for="fileImport" class="btn-add">Import dari CSV</label>
+                    <label for="fileImport" class="btn-add">Import dari CSV/XLSX</label>
                     <input 
                         type="file" 
                         id="fileImport" 
                         name="file_import" 
-                        accept=".csv" 
+                        accept=".csv,.xlsx" 
                         hidden 
                         required
                     >
@@ -120,6 +120,7 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                 <!-- <span class="sync-date">● SIA Sync: 10/03/26</span> -->
             </div>
 
+            <div class="table-scroll-wrapper">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -163,10 +164,12 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                     <?php } ?>
                 </tbody>
             </table>
+            </div>
 
             <div style="margin-top:40px;">
                 <h2>Data Akademik Mahasiswa</h2>
 
+                <div class="table-scroll-wrapper">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -175,6 +178,7 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                             <th>Nama Mahasiswa</th>
                             <th>Dosen PA</th>
                             <th>Semester</th>
+                            <th>IP Semester</th>
                             <th>IPK</th>
                             <th>Skor TOEFL</th>
                             <th>Jumlah Mengulang</th>
@@ -183,7 +187,7 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                             <th>Jalur Masuk</th>
                             <th>Absensi</th>
                             <th>SKS Diambil</th>
-                            <th>SKS Nilai Kurang C</th>
+                            <th>SKS Nilai Kurang B</th>
                         </tr>
                     </thead>
 
@@ -191,23 +195,25 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik $whereAkademik
                         <?php $noAkademik = 1; while ($akademik = mysqli_fetch_assoc($akademikQuery)) { ?>
                         <tr>
                             <td><?php echo $noAkademik++; ?></td>
-                            <td><?php echo $akademik['nim']; ?></td>
-                            <td><?php echo $akademik['nama_mahasiswa']; ?></td>
-                            <td><?php echo $akademik['dosen_pa']; ?></td>
-                            <td><?php echo $akademik['semester']; ?></td>
-                            <td><?php echo $akademik['ipk']; ?></td>
-                            <td><?php echo $akademik['skor_toefl']; ?></td>
-                            <td><?php echo $akademik['jml_mengulang']; ?></td>
-                            <td><?php echo $akademik['sks_lulus']; ?></td>
-                            <td><?php echo $akademik['sisa_masa_studi']; ?></td>
-                            <td><?php echo $akademik['jalur_masuk']; ?></td>
-                            <td><?php echo $akademik['absensi']; ?></td>
-                            <td><?php echo $akademik['sks_diambil']; ?></td>
-                            <td><?php echo $akademik['sks_nilai_kurang_c']; ?></td>
+                            <td><?php echo htmlspecialchars($akademik['nim']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['nama_mahasiswa']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['dosen_pa']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['semester']); ?></td>
+                            <td><?php echo $akademik['ip_semester'] !== null ? htmlspecialchars($akademik['ip_semester']) : '-'; ?></td>
+                            <td><?php echo htmlspecialchars($akademik['ipk']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['skor_toefl']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['jml_mengulang']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['sks_lulus']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['sisa_masa_studi']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['jalur_masuk']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['absensi']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['sks_diambil']); ?></td>
+                            <td><?php echo htmlspecialchars($akademik['sks_nilai_kurang_b']); ?></td>
                         </tr>
                         <?php } ?>
                     </tbody>
                 </table>
+                </div>
             </div>
 
         </section>

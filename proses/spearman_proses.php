@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 include "../config/database.php";
 
 mysqli_query($conn, "DELETE FROM uji_spearman");
@@ -9,7 +11,7 @@ $query = mysqli_query($conn, "
         t.nim,
         t.ranking AS ranking_topsis,
         s.ranking AS ranking_saw
-    FROM ranking_topsis t
+    FROM ranking_topsis_terbaru t
     JOIN ranking_saw s ON t.nim = s.nim
 ");
 
@@ -71,6 +73,12 @@ if (isset($_SESSION['id_user'])) {
     ");
 }
 
-header("Location: ../pages/monitoring.php");
-exit;
+/* Jika dirantai dari input_data.php (proses import oleh admin),
+   JANGAN redirect ke monitoring.php karena halaman itu
+   khusus untuk role 'kaprodi'. Biarkan input_data.php
+   yang menentukan halaman tujuan akhir. */
+if (!defined('SPK_CHAIN')) {
+    header("Location: ../pages/monitoring.php");
+    exit;
+}
 ?>

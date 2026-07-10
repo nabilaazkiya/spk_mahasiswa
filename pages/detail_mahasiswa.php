@@ -36,11 +36,11 @@ $query = mysqli_query($conn, "
         s.ranking AS ranking_saw,
 
         h.status_early_warning
-    FROM data_akademik d
+    FROM data_akademik_terbaru d
     INNER JOIN mahasiswa m ON d.nim = m.nim
-    LEFT JOIN ranking_topsis r ON d.nim = r.nim
+    LEFT JOIN ranking_topsis_terbaru r ON d.nim = r.nim
     LEFT JOIN ranking_saw s ON d.nim = s.nim
-    LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
+    LEFT JOIN hasil_evaluasi_terbaru h ON d.nim = h.nim
     WHERE d.nim = '$nim'
     $whereDpa
     LIMIT 1
@@ -80,6 +80,28 @@ $dataIpk = [];
 while ($r = mysqli_fetch_assoc($riwayatQuery)) {
     $labelSemester[] = 'Semester ' . $r['semester'];
     $dataIpk[] = floatval($r['ipk']);
+}
+
+/* RIWAYAT SKOR TOPSIS PER PERIODE
+   Diambil dari tabel ranking_topsis ASLI (bukan view
+   ranking_topsis_terbaru), supaya semua periode evaluasi
+   yang pernah dihitung untuk mahasiswa ini ikut tampil -
+   ini yang jadi sumber grafik tren TOPSIS antar periode. */
+$riwayatTopsisQuery = mysqli_query($conn, "
+    SELECT periode_evaluasi, nilai_preferensi, ranking
+    FROM ranking_topsis
+    WHERE nim = '$nim'
+    ORDER BY periode_evaluasi ASC
+");
+
+$labelPeriodeTopsis = [];
+$dataSkorTopsis     = [];
+$dataRankingTopsis  = [];
+
+while ($rt = mysqli_fetch_assoc($riwayatTopsisQuery)) {
+    $labelPeriodeTopsis[] = $rt['periode_evaluasi'];
+    $dataSkorTopsis[]     = floatval($rt['nilai_preferensi']);
+    $dataRankingTopsis[]  = intval($rt['ranking']);
 }
 
 /* =============================================
@@ -212,13 +234,13 @@ if (strtolower($status) == 'kritis') {
 
         <section class="chart-detail-box">
             <h3>Tren Performa Semester</h3>
-            <canvas id="grafikIpk"></canvas>
+            <div class="chart-canvas-wrapper"><canvas id="grafikIpk"></canvas></div>
         </section>
 
         <section class="chart-detail-box">
             <h3>Posisi Mahasiswa terhadap Solusi Ideal TOPSIS</h3>
             <?php if (!empty($scatterSelected)): ?>
-                <canvas id="grafikTopsis"></canvas>
+                <div class="chart-canvas-wrapper"><canvas id="grafikTopsis"></canvas></div>
                 <div style="text-align:right;margin-top:8px;">
                     <button id="btnResetZoom" style="padding:4px 12px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#f8f9fa;cursor:pointer;">
                         🔍 Reset Zoom
@@ -235,9 +257,29 @@ if (strtolower($status) == 'kritis') {
             <?php endif; ?>
         </section>
 
+        <section class="chart-detail-box">
+            <h3>Tren Skor TOPSIS Antar Periode</h3>
+            <?php if (count($dataSkorTopsis) >= 2): ?>
+                <div class="chart-canvas-wrapper"><canvas id="grafikTrenTopsis"></canvas></div>
+                <small style="color:#888;display:block;margin-top:8px;">
+                    Menampilkan perubahan skor preferensi TOPSIS mahasiswa ini dari periode ke periode. Skor mendekati 1.0 = performa lebih baik.
+                </small>
+            <?php elseif (count($dataSkorTopsis) == 1): ?>
+                <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;text-align:center;padding:16px;">
+                    <span>Baru ada 1 periode evaluasi TOPSIS. Grafik tren akan muncul setelah periode berikutnya diproses.</span>
+                </div>
+            <?php else: ?>
+                <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;">
+                    <span style="font-size:24px;">&#128202;</span>
+                    <span>Data belum tersedia. Proses TOPSIS belum dijalankan.</span>
+                </div>
+            <?php endif; ?>
+        </section>
+
         <section class="info-table-box">
             <h3>Informasi Akademik Tambahan</h3>
 
+            <div class="table-scroll-wrapper">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -259,10 +301,11 @@ if (strtolower($status) == 'kritis') {
                         <td><?php echo $data['sisa_masa_studi']; ?></td>
                         <td><?php echo $data['jalur_masuk']; ?></td>
                         <td><?php echo $data['absensi']; ?></td>
-                        <td><?php echo $data['sks_nilai_kurang_c']; ?></td>
+                        <td><?php echo $data['sks_nilai_kurang_b']; ?></td>
                     </tr>
                 </tbody>
             </table>
+            </div>
 
             <br>
 
@@ -330,6 +373,7 @@ if (strtolower($status) == 'kritis') {
                     <?php echo $ikon; ?> Kesimpulan Evaluasi Akademik
                 </h4>
 
+                <div class="table-scroll-wrapper">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;color:#444;">
                     <tr>
                         <td style="padding:4px 0;width:180px;font-weight:bold;">Kategori</td>
@@ -360,6 +404,7 @@ if (strtolower($status) == 'kritis') {
                         <td style="padding:10px 0 4px 0;">:&nbsp;<?php echo $rekomendasi; ?></td>
                     </tr>
                 </table>
+                </div>
             </div>
 
             <?php else: ?>
@@ -390,28 +435,154 @@ if (strtolower($status) == 'kritis') {
 </div>
 
 <script>
-new Chart(document.getElementById('grafikIpk'), {
-    type: 'line',
-    data: {
-        labels: <?php echo json_encode($labelSemester); ?>,
-        datasets: [{
-            label: 'IPK',
-            data: <?php echo json_encode($dataIpk); ?>,
-            borderWidth: 2,
-            tension: 0.3
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                max: 4
+/* =============================================
+   GRAFIK TREN IPK PER SEMESTER (REDESIGN)
+   ============================================= */
+(function () {
+    var ctxIpk = document.getElementById('grafikIpk');
+    if (!ctxIpk) return;
+
+    var gradientIpk = ctxIpk.getContext('2d').createLinearGradient(0, 0, 0, 280);
+    gradientIpk.addColorStop(0, 'rgba(54, 108, 235, 0.35)');
+    gradientIpk.addColorStop(1, 'rgba(54, 108, 235, 0.02)');
+
+    new Chart(ctxIpk, {
+        type: 'line',
+        data: {
+            labels: <?php echo json_encode($labelSemester); ?>,
+            datasets: [{
+                label: 'IPK',
+                data: <?php echo json_encode($dataIpk); ?>,
+                borderColor: '#366ceb',
+                backgroundColor: gradientIpk,
+                pointBackgroundColor: '#366ceb',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                borderWidth: 3,
+                tension: 0.35,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1f2937',
+                    padding: 10,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        label: function (ctx) {
+                            return 'IPK: ' + ctx.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 4,
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: { stepSize: 1 }
+                },
+                x: {
+                    grid: { display: false }
+                }
             }
         }
+    });
+})();
+
+/* =============================================
+   GRAFIK TREN SKOR TOPSIS ANTAR PERIODE (BARU)
+   ============================================= */
+(function () {
+    var ctxTopsis = document.getElementById('grafikTrenTopsis');
+    if (!ctxTopsis) return;
+
+    var labelPeriode  = <?php echo json_encode($labelPeriodeTopsis); ?>;
+    var skorTopsis    = <?php echo json_encode($dataSkorTopsis); ?>;
+    var rankingTopsis = <?php echo json_encode($dataRankingTopsis); ?>;
+
+    if (skorTopsis.length < 2) return;
+
+    var gradientTopsis = ctxTopsis.getContext('2d').createLinearGradient(0, 0, 0, 280);
+    gradientTopsis.addColorStop(0, 'rgba(16, 163, 74, 0.35)');
+    gradientTopsis.addColorStop(1, 'rgba(16, 163, 74, 0.02)');
+
+    /* Warna titik menyesuaikan zona skor, konsisten dengan
+       kategori early warning (Kritis/Waspada/Aman/Sangat Baik) */
+    function warnaSkor(skor) {
+        if (skor <= 0.25) return '#dc3545';
+        if (skor <= 0.50) return '#fd7e14';
+        if (skor <= 0.75) return '#0d9f6e';
+        return '#198754';
     }
-});
+
+    var warnaTitik = skorTopsis.map(warnaSkor);
+
+    new Chart(ctxTopsis, {
+        type: 'line',
+        data: {
+            labels: labelPeriode,
+            datasets: [{
+                label: 'Skor Preferensi TOPSIS',
+                data: skorTopsis,
+                borderColor: '#10a34a',
+                backgroundColor: gradientTopsis,
+                pointBackgroundColor: warnaTitik,
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1f2937',
+                    padding: 10,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        label: function (ctx) {
+                            var idx = ctx.dataIndex;
+                            var baris = ['Skor: ' + ctx.parsed.y.toFixed(4)];
+                            if (rankingTopsis[idx]) {
+                                baris.push('Ranking: #' + rankingTopsis[idx]);
+                            }
+                            return baris;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 1,
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    title: { display: true, text: 'Skor Preferensi (0 - 1)' }
+                },
+                x: {
+                    grid: { display: false },
+                    title: { display: true, text: 'Periode Evaluasi' }
+                }
+            }
+        }
+    });
+})();
 
 <?php if (!empty($scatterSelected)): ?>
 

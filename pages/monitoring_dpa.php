@@ -49,10 +49,10 @@ $query = mysqli_query($conn, "
         r.nilai_preferensi,
         r.ranking,
         h.status_early_warning
-    FROM data_akademik d
+    FROM data_akademik_terbaru d
     INNER JOIN mahasiswa m ON d.nim = m.nim
-    LEFT JOIN ranking_topsis r ON d.nim = r.nim
-    LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
+    LEFT JOIN ranking_topsis_terbaru r ON d.nim = r.nim
+    LEFT JOIN hasil_evaluasi_terbaru h ON d.nim = h.nim
     $where
     ORDER BY $orderBy
 ");
@@ -131,6 +131,7 @@ $totalData = mysqli_num_rows($query);
                 <p><?php echo $totalData; ?> total</p>
             </div>
 
+            <div class="table-scroll-wrapper">
             <table class="data-table monitoring-table">
                 <thead>
                     <tr>
@@ -172,6 +173,7 @@ $totalData = mysqli_num_rows($query);
                     <?php } ?>
                 </tbody>
             </table>
+            </div>
         </section>
     </main>
 </div>

@@ -11,10 +11,10 @@ function ambilDataScatter($conn, $whereExtra = '')
             r.nilai_preferensi,
             d.nama_mahasiswa,
             h.status_early_warning
-        FROM ranking_topsis r
+        FROM ranking_topsis_terbaru r
         INNER JOIN mahasiswa m ON r.nim = m.nim
-        LEFT JOIN data_akademik d ON r.nim = d.nim
-        LEFT JOIN hasil_evaluasi h ON r.nim = h.nim
+        LEFT JOIN data_akademik_terbaru d ON r.nim = d.nim
+        LEFT JOIN hasil_evaluasi_terbaru h ON r.nim = h.nim
         WHERE r.jarak_positif IS NOT NULL
         AND r.jarak_negatif IS NOT NULL
         $whereExtra

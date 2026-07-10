@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 include "../config/database.php";
 
 if (!isset($_SESSION['role'])) {
@@ -7,14 +9,40 @@ if (!isset($_SESSION['role'])) {
     exit; 
 }
 
+/* PERBAIKAN BUG (revisi ke-2): granularitas jam/detik pada
+   periode sempat dicoba untuk memastikan re-import di hari
+   yang sama tercatat sebagai titik tren baru - tapi ini
+   menimbulkan masalah baru: upload file yang SAMA berkali-kali
+   (misal saat testing) menghasilkan banyak titik tren yang
+   redundan dengan skor identik, cuma beda jam.
+
+   Solusi final: periode kembali memakai granularitas TANGGAL
+   SAJA, tapi keputusan "apakah ini periode baru yang perlu
+   dicatat" sekarang ditentukan dari PERUBAHAN ISI DATA (skor
+   TOPSIS seluruh mahasiswa dibandingkan ke periode terakhir),
+   bukan dari waktu. Lihat pengecekan $adaPerubahanDibanding
+   Periode Terakhir di bagian "SIMPAN KE ranking_topsis" di
+   bawah. Kalau hasil identik dengan periode terakhir (berarti
+   file yang sama diupload ulang), TIDAK ADA periode baru yang
+   dibuat sama sekali. */
 $periode = date('Y-m-d');
 
 /* =============================================
    1. HAPUS DATA LAMA
+   PERBAIKAN: ranking_topsis dan hasil_evaluasi TIDAK LAGI
+   dihapus semua di sini. Sebelumnya setiap proses TOPSIS
+   dijalankan ulang, seluruh histori periode sebelumnya ikut
+   terhapus - sehingga grafik tren skor TOPSIS antar periode
+   (di Detail Mahasiswa) tidak pernah bisa punya lebih dari
+   1 titik data. Sekarang keduanya di-UPSERT per (nim, periode)
+   di bagian bawah (lihat langkah 10 & 11).
+
+   solusi_ideal TETAP dihapus setiap run karena sifatnya hanya
+   data referensi transien untuk perhitungan (nilai ideal
+   positif/negatif per kriteria pada saat itu), bukan histori
+   yang perlu ditampilkan ke pengguna.
    ============================================= */
-mysqli_query($conn, "DELETE FROM ranking_topsis");
 mysqli_query($conn, "DELETE FROM solusi_ideal");
-mysqli_query($conn, "DELETE FROM hasil_evaluasi");
 
 /* =============================================
    2. AMBIL DATA AKADEMIK TERBARU PER MAHASISWA
@@ -311,42 +339,104 @@ usort($hasilTopsis, function ($a, $b) {
 });
 
 /* =============================================
+   9b. DETEKSI APAKAH INI PERIODE BARU YANG SAH
+   Bandingkan skor TOPSIS hasil hitung SEKARANG dengan
+   snapshot PERIODE TERAKHIR yang sudah tersimpan di
+   database (via view ranking_topsis_terbaru). Kalau
+   identik persis (nama mahasiswa & skornya sama semua),
+   berarti ini kemungkinan besar file yang SAMA diupload
+   ulang (misal testing/tidak sengaja) - maka periode baru
+   TIDAK dibuat sama sekali, supaya grafik tren tidak penuh
+   titik-titik redundan dengan skor yang identik.
+
+   Kalau ADA perbedaan sekecil apapun (skor berubah, atau
+   ada mahasiswa baru/hilang), baru dianggap periode evaluasi
+   yang sah dan akan tersimpan sebagai titik tren baru.
+   ============================================= */
+$snapshotLama = [];
+$qSnapshotLama = mysqli_query($conn, "SELECT nim, nilai_preferensi FROM ranking_topsis_terbaru");
+if ($qSnapshotLama) {
+    while ($rowLama = mysqli_fetch_assoc($qSnapshotLama)) {
+        $snapshotLama[$rowLama['nim']] = round((float) $rowLama['nilai_preferensi'], 4);
+    }
+}
+
+$snapshotBaru = [];
+foreach ($hasilTopsis as $hasil) {
+    $snapshotBaru[$hasil['nim']] = round((float) $hasil['nilai_preferensi'], 4);
+}
+
+ksort($snapshotLama);
+ksort($snapshotBaru);
+
+$adaPerubahanDibandingPeriodeTerakhir = empty($snapshotLama) || ($snapshotLama !== $snapshotBaru);
+
+/* =============================================
    10. SIMPAN KE ranking_topsis
+   PERBAIKAN: upsert per (nim, periode_evaluasi) - bukan
+   INSERT polos ke tabel yang sudah dikosongkan. Kalau
+   proses ini dijalankan berkali-kali di HARI YANG SAMA
+   (periode sama), baris yang sama akan diperbarui, bukan
+   duplikat. Kalau tanggalnya beda (periode baru), baris
+   baru akan tersimpan sebagai titik histori baru.
+
+   Loop ini hanya berjalan kalau memang ADA PERUBAHAN
+   dibanding periode terakhir (lihat langkah 9b) - supaya
+   tidak membuat titik histori baru yang redundan.
    ============================================= */
 $ranking = 1;
 $gagalSimpanRanking = [];
 
+if ($adaPerubahanDibandingPeriodeTerakhir) {
 foreach ($hasilTopsis as $hasil) {
     $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
     $nilaiPreferensi = $hasil['nilai_preferensi'];
     $jarakPositif    = $hasil['jarak_positif'];
     $jarakNegatif    = $hasil['jarak_negatif'];
 
-    $insertRanking = mysqli_query($conn, "
-        INSERT INTO ranking_topsis (
-            nim,
-            nilai_preferensi,
-            ranking,
-            jarak_positif,
-            jarak_negatif,
-            periode_evaluasi
-        ) VALUES (
-            '$nim',
-            '$nilaiPreferensi',
-            '$ranking',
-            '$jarakPositif',
-            '$jarakNegatif',
-            '$periode'
-        )
+    $cekRanking = mysqli_query($conn, "
+        SELECT id_ranking FROM ranking_topsis
+        WHERE nim = '$nim' AND periode_evaluasi = '$periode'
     ");
+
+    if ($cekRanking && mysqli_num_rows($cekRanking) > 0) {
+        $rowRanking = mysqli_fetch_assoc($cekRanking);
+        $insertRanking = mysqli_query($conn, "
+            UPDATE ranking_topsis SET
+                nilai_preferensi = '$nilaiPreferensi',
+                ranking          = '$ranking',
+                jarak_positif    = '$jarakPositif',
+                jarak_negatif    = '$jarakNegatif'
+            WHERE id_ranking = '{$rowRanking['id_ranking']}'
+        ");
+    } else {
+        $insertRanking = mysqli_query($conn, "
+            INSERT INTO ranking_topsis (
+                nim,
+                nilai_preferensi,
+                ranking,
+                jarak_positif,
+                jarak_negatif,
+                periode_evaluasi
+            ) VALUES (
+                '$nim',
+                '$nilaiPreferensi',
+                '$ranking',
+                '$jarakPositif',
+                '$jarakNegatif',
+                '$periode'
+            )
+        ");
+    }
 
     if (!$insertRanking) {
         $gagalSimpanRanking[] = $nim;
-        error_log("Gagal INSERT ranking_topsis untuk nim=$nim: " . mysqli_error($conn));
+        error_log("Gagal simpan ranking_topsis untuk nim=$nim: " . mysqli_error($conn));
     }
 
     $ranking++;
 }
+} // end if ($adaPerubahanDibandingPeriodeTerakhir)
 
 /* =============================================
    11. SIMPAN KATEGORI KE hasil_evaluasi
@@ -355,7 +445,14 @@ foreach ($hasilTopsis as $hasil) {
        0.26 - 0.50 = Waspada
        0.51 - 0.75 = Aman
        0.76 - 1.00 = Sangat Baik
+
+       PERBAIKAN: upsert per (nim, periode_evaluasi), sama
+       seperti ranking_topsis di atas - histori periode lain
+       tidak lagi terhapus. Loop ini juga hanya berjalan kalau
+       ADA PERUBAHAN dibanding periode terakhir (flag yang
+       sama dengan ranking_topsis di atas).
    ============================================= */
+if ($adaPerubahanDibandingPeriodeTerakhir) {
 foreach ($hasilTopsis as $hasil) {
     $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
     $nilaiPreferensi = $hasil['nilai_preferensi'];
@@ -370,24 +467,40 @@ foreach ($hasilTopsis as $hasil) {
         $statusEarlyWarning = 'Sangat Baik';
     }
 
-    $insertEvaluasi = mysqli_query($conn, "
-        INSERT INTO hasil_evaluasi (
-            nim,
-            nilai_preferensi,
-            status_early_warning,
-            periode_evaluasi
-        ) VALUES (
-            '$nim',
-            '$nilaiPreferensi',
-            '$statusEarlyWarning',
-            '$periode'
-        )
+    $cekEvaluasi = mysqli_query($conn, "
+        SELECT id_hasil FROM hasil_evaluasi
+        WHERE nim = '$nim' AND periode_evaluasi = '$periode'
     ");
 
+    if ($cekEvaluasi && mysqli_num_rows($cekEvaluasi) > 0) {
+        $rowEvaluasi = mysqli_fetch_assoc($cekEvaluasi);
+        $insertEvaluasi = mysqli_query($conn, "
+            UPDATE hasil_evaluasi SET
+                nilai_preferensi      = '$nilaiPreferensi',
+                status_early_warning  = '$statusEarlyWarning'
+            WHERE id_hasil = '{$rowEvaluasi['id_hasil']}'
+        ");
+    } else {
+        $insertEvaluasi = mysqli_query($conn, "
+            INSERT INTO hasil_evaluasi (
+                nim,
+                nilai_preferensi,
+                status_early_warning,
+                periode_evaluasi
+            ) VALUES (
+                '$nim',
+                '$nilaiPreferensi',
+                '$statusEarlyWarning',
+                '$periode'
+            )
+        ");
+    }
+
     if (!$insertEvaluasi) {
-        error_log("Gagal INSERT hasil_evaluasi untuk nim=$nim: " . mysqli_error($conn));
+        error_log("Gagal simpan hasil_evaluasi untuk nim=$nim: " . mysqli_error($conn));
     }
 }
+} // end if ($adaPerubahanDibandingPeriodeTerakhir)
 
 /* =============================================
    12. LOG AKTIVITAS
@@ -422,7 +535,12 @@ if (isset($_SESSION['id_user'])) {
 
 /* =============================================
    13. LANJUT KE PROSES SAW
+   (Jika dipanggil otomatis via chain dari
+   input_data.php, biarkan caller yang
+   melanjutkan ke saw_proses.php)
    ============================================= */
-header("Location: saw_proses.php");
-exit;
+if (!defined('SPK_CHAIN')) {
+    header("Location: saw_proses.php");
+    exit;
+}
 ?>

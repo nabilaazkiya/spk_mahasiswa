@@ -22,7 +22,7 @@ $totalMahasiswa = mysqli_fetch_assoc(mysqli_query($conn, "
 $kritis = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total
     FROM mahasiswa m
-    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    LEFT JOIN hasil_evaluasi_terbaru h ON m.nim = h.nim
     WHERE m.id_user = '$idDpa'
     AND h.status_early_warning = 'Kritis'
 "));
@@ -30,7 +30,7 @@ $kritis = mysqli_fetch_assoc(mysqli_query($conn, "
 $waspada = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total
     FROM mahasiswa m
-    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    LEFT JOIN hasil_evaluasi_terbaru h ON m.nim = h.nim
     WHERE m.id_user = '$idDpa'
     AND h.status_early_warning = 'Waspada'
 "));
@@ -38,7 +38,7 @@ $waspada = mysqli_fetch_assoc(mysqli_query($conn, "
 $aman = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total
     FROM mahasiswa m
-    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    LEFT JOIN hasil_evaluasi_terbaru h ON m.nim = h.nim
     WHERE m.id_user = '$idDpa'
     AND h.status_early_warning = 'Aman'
 "));
@@ -46,7 +46,7 @@ $aman = mysqli_fetch_assoc(mysqli_query($conn, "
 $sangatBaik = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total
     FROM mahasiswa m
-    LEFT JOIN hasil_evaluasi h ON m.nim = h.nim
+    LEFT JOIN hasil_evaluasi_terbaru h ON m.nim = h.nim
     WHERE m.id_user = '$idDpa'
     AND h.status_early_warning = 'Sangat Baik'
 "));

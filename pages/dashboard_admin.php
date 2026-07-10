@@ -100,6 +100,7 @@ $logAktivitas = mysqli_query($conn, "
         <section class="section-log">
             <h3>Log Aktivitas Terakhir</h3>
 
+            <div class="table-scroll-wrapper">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -141,6 +142,7 @@ $logAktivitas = mysqli_query($conn, "
 
                 </tbody>
             </table>
+            </div>
         </section>
 
     </main>

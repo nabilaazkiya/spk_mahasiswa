@@ -2,6 +2,7 @@
 session_start();
 
 include "../config/database.php";
+require "../includes/dpa_sync.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     header("Location: ../login.php");
@@ -61,6 +62,23 @@ if ($query) {
 
     $idAdmin = $_SESSION['id_user'];
 
+    /* PERBAIKAN BUG: setelah akun DPA baru dibuat, langsung
+       coba hubungkan ke mahasiswa yang datanya sudah lebih
+       dulu diimpor (lihat includes/dpa_sync.php untuk detail
+       akar masalahnya). Tanpa ini, dashboard DPA yang baru
+       dibuat akan selalu menampilkan 0 data. */
+    $jumlahTerhubung = 0;
+
+    if ($role === 'dpa') {
+        $idUserBaru = mysqli_insert_id($conn);
+        /* Pakai nilai mentah dari $_POST (bukan $nama_lengkap yang
+           sudah di-escape untuk query manual di atas), karena
+           sinkronkanMahasiswaDpa() pakai prepared statement -
+           kalau dikasih string yang sudah di-escape, akan
+           ter-escape dua kali dan pencocokan nama jadi salah. */
+        $jumlahTerhubung = sinkronkanMahasiswaDpa($conn, $idUserBaru, trim($_POST['nama_lengkap']));
+    }
+
     mysqli_query($conn, "
         INSERT INTO log_aktivitas (
             aksi,
@@ -73,9 +91,21 @@ if ($query) {
         )
     ");
 
+    $pesan = 'Pengguna berhasil ditambahkan!';
+
+    if ($role === 'dpa') {
+        if ($jumlahTerhubung > 0) {
+            $pesan .= " $jumlahTerhubung mahasiswa berhasil dihubungkan otomatis ke akun ini.";
+        } else {
+            $pesan .= ' PERHATIAN: belum ada mahasiswa yang cocok dengan nama ini di data akademik. Pastikan nama lengkap PERSIS SAMA dengan kolom "Dosen PA" di file yang diimpor.';
+        }
+    }
+
+    $pesanJs = json_encode($pesan);
+
     echo "
         <script>
-            alert('Pengguna berhasil ditambahkan!');
+            alert($pesanJs);
             window.location='../pages/manajemen_data.php';
         </script>
     ";

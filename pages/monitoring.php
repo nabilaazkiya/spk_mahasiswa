@@ -12,10 +12,10 @@ $sort = isset($_GET['sort']) ? $_GET['sort'] : 'ranking';
 
 $where = "WHERE 1=1";
 
-if ($_SESSION['role'] == 'dpa') {
-    $namaDpa = mysqli_real_escape_string($conn, $_SESSION['nama_lengkap']);
-    $where .= " AND d.dosen_pa = '$namaDpa'";
-}
+/* CATATAN: blok pengecekan role 'dpa' yang sebelumnya ada di sini
+   dihapus karena tidak pernah tereksekusi (dead code) - halaman
+   ini sudah membatasi akses hanya untuk role 'kaprodi' di baris
+   atas, jadi $_SESSION['role'] tidak mungkin bernilai 'dpa' di titik ini. */
 
 if ($keyword != '') {
     $keywordSafe = mysqli_real_escape_string($conn, $keyword);
@@ -51,9 +51,9 @@ $query = mysqli_query($conn, "
         r.nilai_preferensi,
         r.ranking,
         h.status_early_warning
-    FROM data_akademik d
-    LEFT JOIN ranking_topsis r ON d.nim = r.nim
-    LEFT JOIN hasil_evaluasi h ON d.nim = h.nim
+    FROM data_akademik_terbaru d
+    LEFT JOIN ranking_topsis_terbaru r ON d.nim = r.nim
+    LEFT JOIN hasil_evaluasi_terbaru h ON d.nim = h.nim
     $where
     ORDER BY $orderBy
 ");
@@ -136,6 +136,7 @@ $totalData = mysqli_num_rows($query);
                 <p><?php echo $totalData; ?> total</p>
             </div>
 
+            <div class="table-scroll-wrapper">
             <table class="data-table monitoring-table">
                 <thead>
                     <tr>
@@ -177,6 +178,7 @@ $totalData = mysqli_num_rows($query);
                     <?php } ?>
                 </tbody>
             </table>
+            </div>
         </section>
     </main>
 </div>

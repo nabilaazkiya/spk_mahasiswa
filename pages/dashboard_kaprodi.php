@@ -16,25 +16,25 @@ $totalMahasiswa = mysqli_fetch_assoc(mysqli_query($conn, "
 /* JUMLAH KATEGORI */
 $kritis = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total 
-    FROM hasil_evaluasi 
+    FROM hasil_evaluasi_terbaru 
     WHERE status_early_warning='Kritis'
 "));
 
 $waspada = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total 
-    FROM hasil_evaluasi 
+    FROM hasil_evaluasi_terbaru 
     WHERE status_early_warning='Waspada'
 "));
 
 $aman = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total 
-    FROM hasil_evaluasi 
+    FROM hasil_evaluasi_terbaru 
     WHERE status_early_warning='Aman'
 "));
 
 $sangatBaik = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total 
-    FROM hasil_evaluasi 
+    FROM hasil_evaluasi_terbaru 
     WHERE status_early_warning='Sangat Baik'
 "));
 

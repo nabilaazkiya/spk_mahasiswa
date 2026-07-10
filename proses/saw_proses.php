@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 include "../config/database.php";
 
 if (!isset($_SESSION['role'])) {
@@ -249,7 +251,11 @@ if (isset($_SESSION['id_user'])) {
     ");
 }
 
-/* LANJUT KE SPEARMAN */
-header("Location: spearman_proses.php");
-exit;
+/* LANJUT KE SPEARMAN
+   (Jika dirantai dari input_data.php, biarkan
+   caller yang melanjutkan ke spearman_proses.php) */
+if (!defined('SPK_CHAIN')) {
+    header("Location: spearman_proses.php");
+    exit;
+}
 ?>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 include "../config/database.php";
+require "../includes/dpa_sync.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     header("Location: ../login.php");
@@ -57,6 +58,17 @@ if ($query) {
 
     $idAdmin = $_SESSION['id_user'];
 
+    /* PERBAIKAN BUG: kalau nama_lengkap seorang DPA diperbaiki
+       (misal ditambah gelar supaya cocok dengan teks "Dosen PA"
+       di file yang diimpor), sinkronkan ulang link mahasiswa->DPA.
+       Sebelumnya link ini tidak pernah disegarkan saat edit,
+       sehingga koreksi nama tidak berdampak apapun ke dashboard DPA. */
+    $jumlahTerhubung = 0;
+
+    if ($role === 'dpa') {
+        $jumlahTerhubung = sinkronkanMahasiswaDpa($conn, $id_user, trim($_POST['nama_lengkap']));
+    }
+
     mysqli_query($conn, "
         INSERT INTO log_aktivitas (
             aksi,
@@ -69,9 +81,21 @@ if ($query) {
         )
     ");
 
+    $pesan = 'Data pengguna berhasil diperbarui!';
+
+    if ($role === 'dpa') {
+        if ($jumlahTerhubung > 0) {
+            $pesan .= " $jumlahTerhubung mahasiswa berhasil dihubungkan otomatis ke akun ini.";
+        } else {
+            $pesan .= ' PERHATIAN: belum ada mahasiswa yang cocok dengan nama ini di data akademik. Pastikan nama lengkap PERSIS SAMA dengan kolom "Dosen PA" di file yang diimpor.';
+        }
+    }
+
+    $pesanJs = json_encode($pesan);
+
     echo "
         <script>
-            alert('Data pengguna berhasil diperbarui!');
+            alert($pesanJs);
             window.location='../pages/manajemen_data.php';
         </script>
     ";
