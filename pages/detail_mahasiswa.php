@@ -389,6 +389,12 @@ if (strtolower($status) == 'kritis') {
                         $sksAktual = is_numeric($nilai) ? floatval($nilai) : 0;
                         return $sksIdeal == 0 ? 0 : ($sksAktual / $sksIdeal);
                     }
+                    if ($kolom == 'skor_toefl') {
+                        $skor = is_numeric($nilai) ? floatval($nilai) : 0;
+                        if ($skor < 400) return 0;
+                        if ($skor < 450) return 1;
+                        return 2;
+                    }
                     return is_numeric($nilai) ? floatval($nilai) : 0;
                 }
 
@@ -399,7 +405,7 @@ if (strtolower($status) == 'kritis') {
                    perhitungan kontribusi - supaya mudah dibaca. */
                 function ambilNilaiTampilan($mhs, $kolom)
                 {
-                    if ($kolom == 'sks_lulus' || $kolom == 'sks_diambil') {
+                    if ($kolom == 'sks_lulus' || $kolom == 'sks_diambil' || $kolom == 'skor_toefl') {
                         return isset($mhs[$kolom]) && is_numeric($mhs[$kolom]) ? floatval($mhs[$kolom]) : 0;
                     }
                     return ambilNilaiAnalisis($mhs, $kolom);

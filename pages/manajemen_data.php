@@ -148,6 +148,13 @@ if ($cekDosen) {
                         >
                             &#8635; Hitung Ulang Histori TOPSIS
                         </a>
+                        <a
+                            href="../proses/isi_jalur_masuk_kosong.php"
+                            title="Isi jalur_masuk yang kosong (belum pernah ada datanya sama sekali) berdasarkan urutan alfabetis nama, dibagi 3 kelompok: SNMPTN, SBMPTN, Mandiri. Data yang sudah ada tidak akan disentuh."
+                            onclick="return confirm('Isi jalur_masuk yang KOSONG saja (berdasarkan urutan alfabetis nama) menjadi SNMPTN/SBMPTN/Mandiri? Data jalur_masuk yang sudah ada TIDAK akan diubah.');"
+                        >
+                            &#128196; Isi Jalur Masuk Kosong (Alfabetis)
+                        </a>
                     </div>
                 </div>
 

@@ -90,6 +90,16 @@ function ambilNilaiTopsisBackfill($mhs, $kolomData)
         $sksAktual = is_numeric($nilai) ? floatval($nilai) : 0;
         return $sksIdeal == 0 ? 0 : ($sksAktual / $sksIdeal);
     }
+    if ($kolomData == 'skor_toefl') {
+        $skor = is_numeric($nilai) ? floatval($nilai) : 0;
+        if ($skor < 400) {
+            return 0;
+        } elseif ($skor < 450) {
+            return 1;
+        } else {
+            return 2;
+        }
+    }
     if (!is_numeric($nilai)) {
         return 0;
     }

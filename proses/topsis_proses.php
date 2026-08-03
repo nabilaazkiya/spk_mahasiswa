@@ -189,6 +189,21 @@ function ambilNilaiTopsis($mhs, $kolomData)
         return $sksIdeal == 0 ? 0 : ($sksAktual / $sksIdeal);
     }
 
+    /* PERBAIKAN: Skor TOEFL diubah jadi tingkat ordinal, bukan
+       dipakai sebagai angka mentah - sesuai aturan yang
+       ditetapkan: <400 tidak valid (0), 400-449 (1), >=450
+       setara predikat cumlaude (2). */
+    if ($kolomData == 'skor_toefl') {
+        $skor = is_numeric($nilai) ? floatval($nilai) : 0;
+        if ($skor < 400) {
+            return 0;
+        } elseif ($skor < 450) {
+            return 1;
+        } else {
+            return 2;
+        }
+    }
+
     /* Jika nilai bukan numerik (misal ada teks tersisip di kolom
        yang seharusnya angka), amankan menjadi 0 alih-alih
        membiarkan floatval() menghasilkan nilai tak terduga. */
