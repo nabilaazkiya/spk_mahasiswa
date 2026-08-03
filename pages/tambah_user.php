@@ -12,18 +12,25 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tambah Pengguna</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=7">
 </head>
 <body>
 
 <div class="dashboard-wrapper">
 
     <!-- SIDEBAR -->
-    <aside class="section-sidebar">
+    <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" aria-label="Buka menu">
+        &#9776;
+    </button>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+    <aside class="section-sidebar" id="sectionSidebar">
+        <button type="button" class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Tutup menu">&#10005;</button>
 
         <div class="logo-area">
             <img src="../assets/img/logo_psti.jpg" class="sidebar-logo" alt="Logo">
@@ -185,5 +192,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 
 </div>
 
+<script src="../assets/js/sidebar.js?v=2"></script>
 </body>
 </html>

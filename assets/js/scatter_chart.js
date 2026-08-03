@@ -23,12 +23,15 @@
  */
 function renderScatterChart(canvasId, dataPoints, resetZoomBtnId, onClickPoint) {
 
-    /* Palet diselaraskan dengan grafik tren TOPSIS di detail_mahasiswa.php */
+    /* PERBAIKAN: warna disamakan persis dengan pie chart "Grafik
+       Sebaran Kategori" di Dashboard Kaprodi/DPA, supaya warna
+       kategori konsisten di seluruh aplikasi (sebelumnya scatter
+       ini pakai palet warna sendiri yang berbeda dari pie chart). */
     var kategoriWarna = {
-        'Kritis'         : '#dc3545',
-        'Waspada'        : '#fd7e14',
-        'Aman'           : '#0d9f6e',
-        'Sangat Baik'    : '#198754',
+        'Kritis'         : '#ff6b6b',
+        'Waspada'        : '#ffc46b',
+        'Aman'           : '#9cff7a',
+        'Sangat Baik'    : '#00c781',
         'Belum Diproses' : '#95a5a6'
     };
 
@@ -175,6 +178,15 @@ function renderScatterChart(canvasId, dataPoints, resetZoomBtnId, onClickPoint) 
                     pan: {
                         enabled: true,
                         mode: 'xy'
+                    },
+                    /* PERBAIKAN: data D+/D- tidak pernah bernilai
+                       negatif, tapi zoom/pan sebelumnya bisa
+                       digeser ke area negatif sehingga terlihat
+                       seperti ada data di sana padahal kosong.
+                       Kunci batas minimum di 0 untuk kedua sumbu. */
+                    limits: {
+                        x: { min: 0 },
+                        y: { min: 0 }
                     }
                 }
             },
@@ -203,11 +215,13 @@ function renderScatterChart(canvasId, dataPoints, resetZoomBtnId, onClickPoint) 
                 x: {
                     title: { display: true, text: 'Jarak ke Solusi Ideal Positif (D+)', font: { size: 12 } },
                     beginAtZero: true,
+                    min: 0,
                     grid: { color: 'rgba(0,0,0,0.05)' }
                 },
                 y: {
                     title: { display: true, text: 'Jarak ke Solusi Ideal Negatif (D-)', font: { size: 12 } },
                     beginAtZero: true,
+                    min: 0,
                     grid: { color: 'rgba(0,0,0,0.05)' }
                 }
             }

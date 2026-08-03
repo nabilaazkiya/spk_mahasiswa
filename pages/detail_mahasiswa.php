@@ -86,11 +86,19 @@ while ($r = mysqli_fetch_assoc($riwayatQuery)) {
    Diambil dari tabel ranking_topsis ASLI (bukan view
    ranking_topsis_terbaru), supaya semua periode evaluasi
    yang pernah dihitung untuk mahasiswa ini ikut tampil -
-   ini yang jadi sumber grafik tren TOPSIS antar periode. */
+   ini yang jadi sumber grafik tren TOPSIS antar periode.
+
+   FILTER: hanya periode berformat "Semester XX" yang dipakai.
+   Baris lama berlabel tanggal (mis. "2026-07-09") adalah sisa
+   dari sebelum periode_evaluasi memakai nomor semester -
+   disaring di sini supaya tidak muncul bercampur di grafik.
+   Data lama tsb sudah tergantikan oleh hasil "Hitung Ulang
+   Histori TOPSIS" yang berformat semester. */
 $riwayatTopsisQuery = mysqli_query($conn, "
     SELECT periode_evaluasi, nilai_preferensi, ranking
     FROM ranking_topsis
     WHERE nim = '$nim'
+    AND periode_evaluasi LIKE 'Semester %'
     ORDER BY periode_evaluasi ASC
 ");
 
@@ -103,13 +111,6 @@ while ($rt = mysqli_fetch_assoc($riwayatTopsisQuery)) {
     $dataSkorTopsis[]     = floatval($rt['nilai_preferensi']);
     $dataRankingTopsis[]  = intval($rt['ranking']);
 }
-
-/* =============================================
-   DATA SCATTER TOPSIS (menggunakan helper bersama)
-   ============================================= */
-include "../includes/scatter_helper.php";
-
-$scatterSelected = ambilDataScatter($conn, "AND r.nim = '$nim'");
 
 $status = $data['status_early_warning'] ?? 'Belum Diproses';
 $statusClass = 'status-aktif';
@@ -129,19 +130,23 @@ if (strtolower($status) == 'kritis') {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detail Mahasiswa</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=7">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="../assets/js/scatter_chart.js"></script>
 </head>
 
 <body>
 
 <div class="dashboard-wrapper">
 
-    <aside class="section-sidebar">
+    <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" aria-label="Buka menu">
+        &#9776;
+    </button>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+    <aside class="section-sidebar" id="sectionSidebar">
+        <button type="button" class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Tutup menu">&#10005;</button>
         <div class="logo-area">
             <img src="../assets/img/logo_psti.jpg" class="sidebar-logo" alt="Logo PSTI">
             <span class="logo-text">Prioritas Mahasiswa<br>Bimbingan</span>
@@ -232,48 +237,32 @@ if (strtolower($status) == 'kritis') {
 
         </section>
 
-        <section class="chart-detail-box">
-            <h3>Tren Performa Semester</h3>
-            <div class="chart-canvas-wrapper"><canvas id="grafikIpk"></canvas></div>
-        </section>
+        <section class="chart-detail-row">
 
-        <section class="chart-detail-box">
-            <h3>Posisi Mahasiswa terhadap Solusi Ideal TOPSIS</h3>
-            <?php if (!empty($scatterSelected)): ?>
-                <div class="chart-canvas-wrapper"><canvas id="grafikTopsis"></canvas></div>
-                <div style="text-align:right;margin-top:8px;">
-                    <button id="btnResetZoom" style="padding:4px 12px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#f8f9fa;cursor:pointer;">
-                        🔍 Reset Zoom
-                    </button>
-                </div>
-                <small style="color:#888;display:block;margin-top:4px;">
-                    Gunakan scroll mouse untuk zoom, klik+geser untuk pan, klik titik untuk detail.
-                </small>
-            <?php else: ?>
-                <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;">
-                    <span style="font-size:24px;">&#128202;</span>
-                    <span>Data belum tersedia. Proses TOPSIS belum dijalankan.</span>
-                </div>
-            <?php endif; ?>
-        </section>
+            <div class="chart-detail-box">
+                <h3>Tren Performa Semester (IPK)</h3>
+                <div class="chart-canvas-wrapper"><canvas id="grafikIpk"></canvas></div>
+            </div>
 
-        <section class="chart-detail-box">
-            <h3>Tren Skor TOPSIS Antar Periode</h3>
-            <?php if (count($dataSkorTopsis) >= 2): ?>
-                <div class="chart-canvas-wrapper"><canvas id="grafikTrenTopsis"></canvas></div>
-                <small style="color:#888;display:block;margin-top:8px;">
-                    Menampilkan perubahan skor preferensi TOPSIS mahasiswa ini dari periode ke periode. Skor mendekati 1.0 = performa lebih baik.
-                </small>
-            <?php elseif (count($dataSkorTopsis) == 1): ?>
-                <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;text-align:center;padding:16px;">
-                    <span>Baru ada 1 periode evaluasi TOPSIS. Grafik tren akan muncul setelah periode berikutnya diproses.</span>
-                </div>
-            <?php else: ?>
-                <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;">
-                    <span style="font-size:24px;">&#128202;</span>
-                    <span>Data belum tersedia. Proses TOPSIS belum dijalankan.</span>
-                </div>
-            <?php endif; ?>
+            <div class="chart-detail-box">
+                <h3>Tren Performa Mahasiswa Berdasarkan TOPSIS</h3>
+                <?php if (count($dataSkorTopsis) >= 2): ?>
+                    <div class="chart-canvas-wrapper"><canvas id="grafikTrenTopsis"></canvas></div>
+                    <small style="color:#888;display:block;margin-top:8px;">
+                        Menampilkan perubahan skor preferensi TOPSIS mahasiswa ini dari periode ke periode. Skor mendekati 1.0 = performa lebih baik.
+                    </small>
+                <?php elseif (count($dataSkorTopsis) == 1): ?>
+                    <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;text-align:center;padding:16px;">
+                        <span>Baru ada 1 periode evaluasi TOPSIS. Grafik tren akan muncul setelah periode berikutnya diproses.</span>
+                    </div>
+                <?php else: ?>
+                    <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;">
+                        <span style="font-size:24px;">&#128202;</span>
+                        <span>Data belum tersedia. Proses TOPSIS belum dijalankan.</span>
+                    </div>
+                <?php endif; ?>
+            </div>
+
         </section>
 
         <section class="info-table-box">
@@ -289,7 +278,7 @@ if (strtolower($status) == 'kritis') {
                         <th>Sisa Masa Studi</th>
                         <th>Jalur Masuk</th>
                         <th>Absensi</th>
-                        <th>SKS Nilai Kurang C</th>
+                        <th>SKS Nilai Kurang B</th>
                     </tr>
                 </thead>
 
@@ -306,8 +295,6 @@ if (strtolower($status) == 'kritis') {
                 </tbody>
             </table>
             </div>
-
-            <br>
 
             <!-- ═══════════════════════════════════════
                  KESIMPULAN KATEGORI MAHASISWA
@@ -345,6 +332,221 @@ if (strtolower($status) == 'kritis') {
                     'Sangat Baik' => 'Kondisi akademik mahasiswa sangat baik. Dosen PA disarankan untuk mendorong mahasiswa mengikuti kegiatan akademik atau penelitian yang lebih menantang.'
                 ];
 
+                /* Rentang nilai preferensi TOPSIS per kategori,
+                   mengikuti aturan yang sama persis dengan yang
+                   dipakai saat proses TOPSIS (lihat topsis_proses.php):
+                   0.00 - 0.25 = Kritis, 0.26 - 0.50 = Waspada,
+                   0.51 - 0.75 = Aman, 0.76 - 1.00 = Sangat Baik */
+                $rentangMap = [
+                    'Kritis'      => '0.00 – 0.25',
+                    'Waspada'     => '0.26 – 0.50',
+                    'Aman'        => '0.51 – 0.75',
+                    'Sangat Baik' => '0.76 – 1.00'
+                ];
+                $rentang    = $rentangMap[$statusLabel] ?? '-';
+
+                /* =============================================
+                   ANALISIS KONTRIBUSI PER KRITERIA
+                   =============================================
+                   Menjelaskan kriteria APA yang paling menekan
+                   dan paling mendukung skor TOPSIS mahasiswa ini,
+                   dengan menghitung ulang matriks TOPSIS untuk
+                   kohort mahasiswa lain yang berada di semester
+                   yang sama (mirip proses/topsis_backfill.php),
+                   lalu melihat seberapa dekat nilai terbobot
+                   mahasiswa ini terhadap solusi ideal positif
+                   dibanding solusi ideal negatif, PER KRITERIA.
+
+                   Kriteria dengan kontribusi mendekati 0 = paling
+                   dekat ke solusi ideal NEGATIF (paling menekan
+                   skor). Kriteria dengan kontribusi mendekati 1 =
+                   paling dekat ke solusi ideal POSITIF (paling
+                   mendukung skor).
+                   ============================================= */
+                function amankanNilaiAnalisis($n)
+                {
+                    if (!is_numeric($n)) return 0;
+                    $n = floatval($n);
+                    return (is_nan($n) || is_infinite($n)) ? 0 : $n;
+                }
+
+                function ambilNilaiAnalisis($mhs, $kolom)
+                {
+                    if (!isset($mhs[$kolom]) || $mhs[$kolom] === null || $mhs[$kolom] === '') return 0;
+                    $nilai = $mhs[$kolom];
+                    if ($kolom == 'jalur_masuk') {
+                        $l = strtolower(trim($nilai));
+                        if (strpos($l, 'beasiswa') !== false && strpos($l, 'internasional') !== false) return 5;
+                        if ($l == 'snbp' || $l == 'snmptn') return 4;
+                        if ($l == 'snbt' || $l == 'sbmptn') return 3;
+                        if ($l == 'mandiri') return 2;
+                        return 1;
+                    }
+                    if ($kolom == 'sks_lulus' || $kolom == 'sks_diambil') {
+                        $semester = isset($mhs['semester']) ? floatval($mhs['semester']) : 0;
+                        if ($semester <= 0) return 0;
+                        $sksIdeal  = $semester * 20;
+                        $sksAktual = is_numeric($nilai) ? floatval($nilai) : 0;
+                        return $sksIdeal == 0 ? 0 : ($sksAktual / $sksIdeal);
+                    }
+                    return is_numeric($nilai) ? floatval($nilai) : 0;
+                }
+
+                /* Untuk teks "Keterangan" yang ditampilkan ke pengguna,
+                   SKS Lulus/Diambil sebaiknya tetap tampil sebagai
+                   angka SKS asli (mis. "143"), bukan rasio (mis.
+                   "0.85") yang dipakai di balik layar untuk
+                   perhitungan kontribusi - supaya mudah dibaca. */
+                function ambilNilaiTampilan($mhs, $kolom)
+                {
+                    if ($kolom == 'sks_lulus' || $kolom == 'sks_diambil') {
+                        return isset($mhs[$kolom]) && is_numeric($mhs[$kolom]) ? floatval($mhs[$kolom]) : 0;
+                    }
+                    return ambilNilaiAnalisis($mhs, $kolom);
+                }
+
+                $kontribusiKriteria = [];
+
+                $qKritDetail = mysqli_query($conn, "
+                    SELECT * FROM kriteria
+                    WHERE kolom_data IS NOT NULL AND kolom_data != '' AND bobot_delphi > 0
+                    ORDER BY id_kriteria ASC
+                ");
+                $daftarKriteriaAktif = [];
+                while ($rk = mysqli_fetch_assoc($qKritDetail)) {
+                    $daftarKriteriaAktif[] = $rk;
+                }
+
+                if (!empty($daftarKriteriaAktif) && isset($data['semester'])) {
+                    $semesterMhs = (int) $data['semester'];
+
+                    /* Kohort: mahasiswa lain di semester yang sama,
+                       dari snapshot data_akademik terbaru mereka
+                       PADA semester itu (sama seperti backfill). */
+                    $kohort = [];
+                    $stmtKohort = mysqli_prepare($conn, "
+                        SELECT da.*
+                        FROM data_akademik da
+                        INNER JOIN (
+                            SELECT nim, MAX(id_data) AS id_data_terbaru
+                            FROM data_akademik
+                            WHERE semester = ?
+                            GROUP BY nim
+                        ) t ON da.nim = t.nim AND da.id_data = t.id_data_terbaru
+                    ");
+                    mysqli_stmt_bind_param($stmtKohort, "i", $semesterMhs);
+                    mysqli_stmt_execute($stmtKohort);
+                    $resKohort = mysqli_stmt_get_result($stmtKohort);
+                    while ($rowK = mysqli_fetch_assoc($resKohort)) {
+                        $kohort[] = $rowK;
+                    }
+                    mysqli_stmt_close($stmtKohort);
+
+                    /* Perlu minimal 2 mahasiswa (termasuk diri sendiri)
+                       supaya normalisasi & solusi ideal punya arti. */
+                    if (count($kohort) >= 2) {
+                        $matriksA = [];
+                        foreach ($kohort as $mhs) {
+                            foreach ($daftarKriteriaAktif as $krit) {
+                                $matriksA[$mhs['nim']][$krit['id_kriteria']] = amankanNilaiAnalisis(
+                                    ambilNilaiAnalisis($mhs, $krit['kolom_data'])
+                                );
+                            }
+                        }
+
+                        $pembagiA = [];
+                        foreach ($daftarKriteriaAktif as $krit) {
+                            $idK = $krit['id_kriteria'];
+                            $totalKuadrat = 0;
+                            foreach ($kohort as $mhs) {
+                                $totalKuadrat += pow($matriksA[$mhs['nim']][$idK], 2);
+                            }
+                            $pembagiA[$idK] = amankanNilaiAnalisis(sqrt($totalKuadrat));
+                        }
+
+                        $terbobotA = [];
+                        foreach ($kohort as $mhs) {
+                            foreach ($daftarKriteriaAktif as $krit) {
+                                $idK   = $krit['id_kriteria'];
+                                $bobot = amankanNilaiAnalisis($krit['bobot_delphi']);
+                                $r     = $pembagiA[$idK] == 0 ? 0 : $matriksA[$mhs['nim']][$idK] / $pembagiA[$idK];
+                                $terbobotA[$mhs['nim']][$idK] = amankanNilaiAnalisis($r * $bobot);
+                            }
+                        }
+
+                        $idealPos = [];
+                        $idealNeg = [];
+                        foreach ($daftarKriteriaAktif as $krit) {
+                            $idK   = $krit['id_kriteria'];
+                            $jenis = strtolower(trim($krit['jenis']));
+                            $nilaiKolom = [];
+                            foreach ($kohort as $mhs) {
+                                $nilaiKolom[] = $terbobotA[$mhs['nim']][$idK];
+                            }
+                            if ($jenis == 'benefit') {
+                                $idealPos[$idK] = amankanNilaiAnalisis(max($nilaiKolom));
+                                $idealNeg[$idK] = amankanNilaiAnalisis(min($nilaiKolom));
+                            } else {
+                                $idealPos[$idK] = amankanNilaiAnalisis(min($nilaiKolom));
+                                $idealNeg[$idK] = amankanNilaiAnalisis(max($nilaiKolom));
+                            }
+                        }
+
+                        if (isset($terbobotA[$nim])) {
+                            foreach ($daftarKriteriaAktif as $krit) {
+                                $idK    = $krit['id_kriteria'];
+                                $vij    = $terbobotA[$nim][$idK];
+                                $rentangIdeal = abs($idealPos[$idK] - $idealNeg[$idK]);
+
+                                /* kontribusi: 1 = persis di solusi ideal positif,
+                                   0 = persis di solusi ideal negatif */
+                                $kontribusi = $rentangIdeal == 0
+                                    ? 0.5
+                                    : amankanNilaiAnalisis(1 - (abs($vij - $idealPos[$idK]) / $rentangIdeal));
+
+                                $kontribusiKriteria[] = [
+                                    'nama'       => $krit['nama_kriteria'],
+                                    'nilai_asli' => ambilNilaiTampilan($data, $krit['kolom_data']),
+                                    'jenis'      => strtolower(trim($krit['jenis'])),
+                                    'kontribusi' => $kontribusi
+                                ];
+                            }
+                        }
+                    }
+                }
+
+                /* Urutkan dari yang PALING MENEKAN (kontribusi terendah)
+                   ke yang PALING MENDUKUNG (kontribusi tertinggi) */
+                usort($kontribusiKriteria, function ($a, $b) {
+                    return $a['kontribusi'] <=> $b['kontribusi'];
+                });
+
+                $penjelasanKriteria = '';
+                if (count($kontribusiKriteria) >= 2) {
+                    $jumlahSorot = min(2, (int) floor(count($kontribusiKriteria) / 2));
+                    $jumlahSorot = max(1, $jumlahSorot);
+
+                    $menekan = array_slice($kontribusiKriteria, 0, $jumlahSorot);
+                    $mendukung = array_slice(array_reverse($kontribusiKriteria), 0, $jumlahSorot);
+
+                    $formatDaftar = function ($daftar) {
+                        return implode(', ', array_map(function ($k) {
+                            return $k['nama'] . ' (' . rtrim(rtrim(number_format($k['nilai_asli'], 2), '0'), '.') . ')';
+                        }, $daftar));
+                    };
+
+                    $penjelasanKriteria = ' Kriteria yang paling menekan skor: ' . $formatDaftar($menekan)
+                        . '. Kriteria yang paling mendukung skor: ' . $formatDaftar($mendukung) . '.';
+                }
+
+                $keterangan = sprintf(
+                    'Mahasiswa masuk kategori "%s" karena nilai preferensi TOPSIS-nya %s berada pada rentang %s.%s',
+                    $statusLabel,
+                    number_format($nilaiPref, 4),
+                    $rentang,
+                    $penjelasanKriteria
+                );
+
                 $bg          = $warnaBg[$statusLabel]     ?? '#f8f9fa';
                 $border      = $warnaBorder[$statusLabel] ?? '#ccc';
                 $ikon        = $warnaIkon[$statusLabel]    ?? 'ℹ️';
@@ -356,7 +558,7 @@ if (strtolower($status) == 'kritis') {
                 if (!empty($data['sks_lulus']))          $faktor[] = 'SKS Lulus: ' . $data['sks_lulus'];
                 if (!empty($data['absensi']))            $faktor[] = 'Absensi: ' . $data['absensi'] . '%';
                 if (!empty($data['jml_mengulang']))      $faktor[] = 'Jumlah Mengulang: ' . $data['jml_mengulang'];
-                if (!empty($data['sks_nilai_kurang_c'])) $faktor[] = 'SKS Nilai < C: ' . $data['sks_nilai_kurang_c'];
+                if (!empty($data['sks_nilai_kurang_b'])) $faktor[] = 'SKS Nilai < B: ' . $data['sks_nilai_kurang_b'];
                 if (!empty($data['sisa_masa_studi']))    $faktor[] = 'Sisa Masa Studi: ' . $data['sisa_masa_studi'] . ' semester';
                 if (!empty($data['skor_toefl']))         $faktor[] = 'Skor TOEFL: ' . $data['skor_toefl'];
             ?>
@@ -399,6 +601,10 @@ if (strtolower($status) == 'kritis') {
                         <td style="padding:4px 0;">:&nbsp;<?php echo implode(' &nbsp;|&nbsp; ', $faktor); ?></td>
                     </tr>
                     <?php endif; ?>
+                    <tr>
+                        <td style="padding:10px 0 4px 0;font-weight:bold;vertical-align:top;">Keterangan</td>
+                        <td style="padding:10px 0 4px 0;">:&nbsp;<?php echo $keterangan; ?></td>
+                    </tr>
                     <tr>
                         <td style="padding:10px 0 4px 0;font-weight:bold;vertical-align:top;">Rekomendasi</td>
                         <td style="padding:10px 0 4px 0;">:&nbsp;<?php echo $rekomendasi; ?></td>
@@ -447,22 +653,17 @@ if (strtolower($status) == 'kritis') {
     gradientIpk.addColorStop(1, 'rgba(54, 108, 235, 0.02)');
 
     new Chart(ctxIpk, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: <?php echo json_encode($labelSemester); ?>,
             datasets: [{
                 label: 'IPK',
                 data: <?php echo json_encode($dataIpk); ?>,
-                borderColor: '#366ceb',
                 backgroundColor: gradientIpk,
-                pointBackgroundColor: '#366ceb',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                pointHoverRadius: 7,
-                borderWidth: 3,
-                tension: 0.35,
-                fill: true
+                borderColor: '#366ceb',
+                borderWidth: 2,
+                borderRadius: 6,
+                maxBarThickness: 48
             }]
         },
         options: {
@@ -518,31 +719,26 @@ if (strtolower($status) == 'kritis') {
     /* Warna titik menyesuaikan zona skor, konsisten dengan
        kategori early warning (Kritis/Waspada/Aman/Sangat Baik) */
     function warnaSkor(skor) {
-        if (skor <= 0.25) return '#dc3545';
-        if (skor <= 0.50) return '#fd7e14';
-        if (skor <= 0.75) return '#0d9f6e';
-        return '#198754';
+        if (skor <= 0.25) return '#ff6b6b';
+        if (skor <= 0.50) return '#ffc46b';
+        if (skor <= 0.75) return '#9cff7a';
+        return '#00c781';
     }
 
     var warnaTitik = skorTopsis.map(warnaSkor);
 
     new Chart(ctxTopsis, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: labelPeriode,
             datasets: [{
                 label: 'Skor Preferensi TOPSIS',
                 data: skorTopsis,
+                backgroundColor: warnaTitik,
                 borderColor: '#10a34a',
-                backgroundColor: gradientTopsis,
-                pointBackgroundColor: warnaTitik,
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true
+                borderWidth: 1,
+                borderRadius: 6,
+                maxBarThickness: 48
             }]
         },
         options: {
@@ -583,15 +779,8 @@ if (strtolower($status) == 'kritis') {
         }
     });
 })();
-
-<?php if (!empty($scatterSelected)): ?>
-
-var scatterDataDetail = <?php echo json_encode($scatterSelected); ?>;
-
-renderScatterChart('grafikTopsis', scatterDataDetail, 'btnResetZoom');
-
-<?php endif; ?>
 </script>
 
+<script src="../assets/js/sidebar.js?v=2"></script>
 </body>
 </html>

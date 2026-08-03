@@ -65,16 +65,23 @@ $totalData = mysqli_num_rows($query);
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Mahasiswa</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=7">
 </head>
 <body>
 
 <div class="dashboard-wrapper">
 
     <!-- SECTION 1: SIDEBAR -->
-    <aside class="section-sidebar">
+    <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" aria-label="Buka menu">
+        &#9776;
+    </button>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+    <aside class="section-sidebar" id="sectionSidebar">
+        <button type="button" class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Tutup menu">&#10005;</button>
         <div class="logo-area">
             <img src="../assets/img/logo_psti.jpg" class="sidebar-logo">
             <span class="logo-text">Prioritas Mahasiswa<br>Bimbingan</span>
@@ -183,5 +190,6 @@ $totalData = mysqli_num_rows($query);
     </main>
 </div>
 
+<script src="../assets/js/sidebar.js?v=2"></script>
 </body>
 </html>

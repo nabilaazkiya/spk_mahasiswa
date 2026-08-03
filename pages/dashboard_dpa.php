@@ -60,14 +60,15 @@ $scatterData = ambilDataScatter($conn, "AND m.id_user = '$idDpa'");
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Dosen PA</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="../assets/js/scatter_chart.js"></script>
+    <script src="../assets/js/scatter_chart.js?v=2"></script>
 
 </head>
 <body>
@@ -75,7 +76,13 @@ $scatterData = ambilDataScatter($conn, "AND m.id_user = '$idDpa'");
 <div class="dashboard-wrapper">
 
 <!-- SECTION 1: SIDEBAR -->
-    <aside class="section-sidebar">
+    <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" aria-label="Buka menu">
+        &#9776;
+    </button>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+    <aside class="section-sidebar" id="sectionSidebar">
+        <button type="button" class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Tutup menu">&#10005;</button>
         <div class="logo-area">
             <img src="../assets/img/logo_psti.jpg" class="sidebar-logo" alt="Logo PSTI">
             <span class="logo-text">Prioritas Mahasiswa<br>Bimbingan</span>
@@ -191,7 +198,9 @@ $scatterData = ambilDataScatter($conn, "AND m.id_user = '$idDpa'");
 
         <section class="scatter-box">
             <h4 style="text-align:center;">Sebaran Mahasiswa Bimbingan terhadap Solusi Ideal TOPSIS</h4>
-            <canvas id="scatterChart"></canvas>
+            <div class="chart-canvas-wrapper">
+                <canvas id="scatterChart"></canvas>
+            </div>
             <div style="text-align:right;margin-top:8px;">
                 <button id="btnResetZoomDpa" style="padding:4px 12px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#f8f9fa;cursor:pointer;">
                     🔍 Reset Zoom
@@ -257,5 +266,6 @@ renderScatterChart(
 );
 </script>
 
+<script src="../assets/js/sidebar.js?v=2"></script>
 </body>
 </html>

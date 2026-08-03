@@ -9,23 +9,24 @@ if (!isset($_SESSION['role'])) {
     exit; 
 }
 
-/* PERBAIKAN BUG (revisi ke-2): granularitas jam/detik pada
-   periode sempat dicoba untuk memastikan re-import di hari
-   yang sama tercatat sebagai titik tren baru - tapi ini
-   menimbulkan masalah baru: upload file yang SAMA berkali-kali
-   (misal saat testing) menghasilkan banyak titik tren yang
-   redundan dengan skor identik, cuma beda jam.
+/* PERBAIKAN BUG (revisi ke-3): sebelumnya "periode_evaluasi"
+   diambil dari TANGGAL proses TOPSIS dijalankan
+   (date('Y-m-d')). Karena TOPSIS otomatis dijalankan ulang
+   setiap kali admin upload data (lihat proses/input_data.php),
+   dan admin sering upload beberapa semester di HARI YANG SAMA,
+   upload kedua akan memakai periode (tanggal) yang SAMA dengan
+   upload pertama - sehingga baris ranking_topsis/hasil_evaluasi
+   yang sudah ada untuk hari itu hanya DITIMPA (UPDATE), bukan
+   dicatat sebagai titik tren baru. Akibatnya grafik tren TOPSIS
+   di Detail Mahasiswa selalu mentok di 1 titik walau datanya
+   sudah mencakup beberapa semester.
 
-   Solusi final: periode kembali memakai granularitas TANGGAL
-   SAJA, tapi keputusan "apakah ini periode baru yang perlu
-   dicatat" sekarang ditentukan dari PERUBAHAN ISI DATA (skor
-   TOPSIS seluruh mahasiswa dibandingkan ke periode terakhir),
-   bukan dari waktu. Lihat pengecekan $adaPerubahanDibanding
-   Periode Terakhir di bagian "SIMPAN KE ranking_topsis" di
-   bawah. Kalau hasil identik dengan periode terakhir (berarti
-   file yang sama diupload ulang), TIDAK ADA periode baru yang
-   dibuat sama sekali. */
-$periode = date('Y-m-d');
+   Solusi: "periode_evaluasi" sekarang diambil PER MAHASISWA dari
+   kolom semester miliknya sendiri di data_akademik (bukan
+   tanggal global) - lihat langkah 8 & 10/11 di bawah. Setiap
+   mahasiswa progres semesternya sendiri-sendiri, jadi ini juga
+   lebih akurat mencerminkan histori akademik masing-masing
+   dibanding tanggal proses. */
 
 /* =============================================
    1. HAPUS DATA LAMA
@@ -140,18 +141,52 @@ function ambilNilaiTopsis($mhs, $kolomData)
         return 0;
     }
 
+    /* PERBAIKAN: Jalur Masuk sekarang 5 tingkat sesuai urutan
+       prioritas yang ditetapkan (dari tertinggi ke terendah):
+       Beasiswa Mahasiswa Internasional > SNMPTN/SNBP >
+       SBMPTN/SNBT > Mandiri > Mahasiswa Pindahan. SNBP/SNBT
+       tetap dikenali sebagai alias SNMPTN/SBMPTN (nama baru
+       jalur yang sama sejak 2023), supaya kompatibel dengan
+       data lama maupun baru. */
     if ($kolomData == 'jalur_masuk') {
         $nilaiLower = strtolower(trim($nilai));
 
-        if ($nilaiLower == 'snbp' || $nilaiLower == 'snmptn') {
+        if (strpos($nilaiLower, 'beasiswa') !== false && strpos($nilaiLower, 'internasional') !== false) {
+            return 5;
+        } elseif ($nilaiLower == 'snbp' || $nilaiLower == 'snmptn') {
             return 4;
         } elseif ($nilaiLower == 'snbt' || $nilaiLower == 'sbmptn') {
             return 3;
         } elseif ($nilaiLower == 'mandiri') {
             return 2;
+        } elseif (strpos($nilaiLower, 'pindahan') !== false) {
+            return 1;
         } else {
+            /* Jalur tidak dikenali - taruh di tingkat terendah
+               daripada diam-diam dianggap setara "Pindahan",
+               supaya kalau ada data ganjil tetap konservatif. */
             return 1;
         }
+    }
+
+    /* PERBAIKAN: SKS Lulus & SKS Diambil dibandingkan secara
+       MENTAH akan selalu merugikan mahasiswa semester awal
+       (SKS mereka wajar jauh lebih sedikit dari mahasiswa
+       semester akhir). Sekarang dinormalisasi jadi RASIO
+       terhadap SKS ideal (semester berjalan x 20 SKS/semester),
+       supaya yang dibandingkan adalah seberapa sesuai progres
+       SKS mahasiswa dengan kecepatan idealnya sendiri - bukan
+       jumlah SKS absolut. Patokan 20 SKS/semester dipakai apa
+       adanya sesuai semester mahasiswa (tidak dibatasi di
+       semester 7 untuk mahasiswa yang sudah lebih dari itu). */
+    if ($kolomData == 'sks_lulus' || $kolomData == 'sks_diambil') {
+        $semester = isset($mhs['semester']) ? floatval($mhs['semester']) : 0;
+        if ($semester <= 0) {
+            return 0;
+        }
+        $sksIdeal = $semester * 20;
+        $sksAktual = is_numeric($nilai) ? floatval($nilai) : 0;
+        return $sksIdeal == 0 ? 0 : ($sksAktual / $sksIdeal);
     }
 
     /* Jika nilai bukan numerik (misal ada teks tersisip di kolom
@@ -322,6 +357,7 @@ foreach ($dataMahasiswa as $mhs) {
 
     $hasilTopsis[] = [
         'nim'              => $nim,
+        'semester'         => (int) $mhs['semester'],
         'nilai_preferensi' => $nilaiPreferensi,
         'jarak_positif'    => $dPlus,
         'jarak_negatif'    => $dMinus
@@ -390,9 +426,7 @@ $gagalSimpanRanking = [];
 if ($adaPerubahanDibandingPeriodeTerakhir) {
 foreach ($hasilTopsis as $hasil) {
     $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
-    $nilaiPreferensi = $hasil['nilai_preferensi'];
-    $jarakPositif    = $hasil['jarak_positif'];
-    $jarakNegatif    = $hasil['jarak_negatif'];
+    $periode         = mysqli_real_escape_string($conn, sprintf('Semester %02d', $hasil['semester']));
 
     $cekRanking = mysqli_query($conn, "
         SELECT id_ranking FROM ranking_topsis
@@ -455,6 +489,7 @@ foreach ($hasilTopsis as $hasil) {
 if ($adaPerubahanDibandingPeriodeTerakhir) {
 foreach ($hasilTopsis as $hasil) {
     $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
+    $periode         = mysqli_real_escape_string($conn, sprintf('Semester %02d', $hasil['semester']));
     $nilaiPreferensi = $hasil['nilai_preferensi'];
 
     if ($nilaiPreferensi <= 0.25) {
