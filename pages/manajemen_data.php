@@ -148,13 +148,6 @@ if ($cekDosen) {
                         >
                             &#8635; Hitung Ulang Histori TOPSIS
                         </a>
-                        <a
-                            href="../proses/isi_jalur_masuk_kosong.php"
-                            title="Isi jalur_masuk yang kosong (belum pernah ada datanya sama sekali) berdasarkan urutan alfabetis nama, dibagi 3 kelompok: SNMPTN, SBMPTN, Mandiri. Data yang sudah ada tidak akan disentuh."
-                            onclick="return confirm('Isi jalur_masuk yang KOSONG saja (berdasarkan urutan alfabetis nama) menjadi SNMPTN/SBMPTN/Mandiri? Data jalur_masuk yang sudah ada TIDAK akan diubah.');"
-                        >
-                            &#128196; Isi Jalur Masuk Kosong (Alfabetis)
-                        </a>
                     </div>
                 </div>
 
@@ -216,12 +209,6 @@ if ($cekDosen) {
                         </td>
                         <!-- <td>N/A</td> -->
                         <td>
-                            <?php if ($row['role'] === 'dpa'): ?>
-                            <a href="../proses/sinkron_dpa_manual.php?id=<?php echo $row['id_user']; ?>" class="action-edit" title="Sinkronkan ulang mahasiswa bimbingan akun ini" onclick="return confirm('Sinkronkan ulang mahasiswa bimbingan untuk <?php echo htmlspecialchars(addslashes($row['nama_lengkap'])); ?>?');">
-                                <i class="fa-solid fa-arrows-rotate"></i>
-                            </a>
-                            <?php endif; ?>
-
                             <a href="edit_user.php?id=<?php echo $row['id_user']; ?>" class="action-edit" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </a>
