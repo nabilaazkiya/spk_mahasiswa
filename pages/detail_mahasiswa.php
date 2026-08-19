@@ -66,9 +66,10 @@ $spearman = mysqli_fetch_assoc(mysqli_query($conn, "
     LIMIT 1
 "));
 
-/* RIWAYAT IPK */
+/* RIWAYAT IP SEMESTER (bukan IPK kumulatif - supaya grafik tren
+   benar-benar menunjukkan naik-turun performa TIAP semester) */
 $riwayatQuery = mysqli_query($conn, "
-    SELECT semester, ipk
+    SELECT semester, ip_semester
     FROM data_akademik
     WHERE nim = '$nim'
     ORDER BY semester ASC
@@ -79,7 +80,7 @@ $dataIpk = [];
 
 while ($r = mysqli_fetch_assoc($riwayatQuery)) {
     $labelSemester[] = 'Semester ' . $r['semester'];
-    $dataIpk[] = floatval($r['ipk']);
+    $dataIpk[] = floatval($r['ip_semester']);
 }
 
 /* RIWAYAT SKOR TOPSIS PER PERIODE
@@ -132,7 +133,7 @@ if (strtolower($status) == 'kritis') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detail Mahasiswa</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=7">
+    <link rel="stylesheet" href="../assets/css/style.css?v=11">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -240,7 +241,7 @@ if (strtolower($status) == 'kritis') {
         <section class="chart-detail-row">
 
             <div class="chart-detail-box">
-                <h3>Tren Performa Semester (IPK)</h3>
+                <h3>Tren Performa Semester (IP Semester)</h3>
                 <div class="chart-canvas-wrapper"><canvas id="grafikIpk"></canvas></div>
             </div>
 
@@ -408,6 +409,14 @@ if (strtolower($status) == 'kritis') {
                     if ($kolom == 'sks_lulus' || $kolom == 'sks_diambil' || $kolom == 'skor_toefl') {
                         return isset($mhs[$kolom]) && is_numeric($mhs[$kolom]) ? floatval($mhs[$kolom]) : 0;
                     }
+                    /* PERBAIKAN: Jalur Masuk ditampilkan teks aslinya
+                       (mis. "SNMPTN"), bukan angka tingkat ordinal
+                       (1-5) yang dipakai di balik layar untuk
+                       perhitungan TOPSIS - supaya tidak membingungkan
+                       Dosen PA yang membaca Keterangan. */
+                    if ($kolom == 'jalur_masuk') {
+                        return isset($mhs[$kolom]) && $mhs[$kolom] !== '' ? $mhs[$kolom] : '-';
+                    }
                     return ambilNilaiAnalisis($mhs, $kolom);
                 }
 
@@ -535,14 +544,24 @@ if (strtolower($status) == 'kritis') {
                     $menekan = array_slice($kontribusiKriteria, 0, $jumlahSorot);
                     $mendukung = array_slice(array_reverse($kontribusiKriteria), 0, $jumlahSorot);
 
-                    $formatDaftar = function ($daftar) {
-                        return implode(', ', array_map(function ($k) {
-                            return $k['nama'] . ' (' . rtrim(rtrim(number_format($k['nilai_asli'], 2), '0'), '.') . ')';
-                        }, $daftar));
+                    /* PERBAIKAN: daftar kriteria ditampilkan MENURUN
+                       (satu baris per kriteria) memakai <ul><li>,
+                       bukan disatukan jadi satu kalimat panjang -
+                       supaya lebih mudah dibaca cepat oleh Dosen PA. */
+                    $formatDaftarList = function ($daftar) {
+                        $items = array_map(function ($k) {
+                            $nilai = is_numeric($k['nilai_asli'])
+                                ? rtrim(rtrim(number_format($k['nilai_asli'], 2), '0'), '.')
+                                : $k['nilai_asli'];
+                            return '<li>' . htmlspecialchars($k['nama']) . ' (' . htmlspecialchars($nilai) . ')</li>';
+                        }, $daftar);
+                        return '<ul style="margin:4px 0 8px 18px;padding:0;">' . implode('', $items) . '</ul>';
                     };
 
-                    $penjelasanKriteria = ' Kriteria yang paling menekan skor: ' . $formatDaftar($menekan)
-                        . '. Kriteria yang paling mendukung skor: ' . $formatDaftar($mendukung) . '.';
+                    $penjelasanKriteria = '<br><strong>Kriteria yang paling menekan skor:</strong>'
+                        . $formatDaftarList($menekan)
+                        . '<strong>Kriteria yang paling mendukung skor:</strong>'
+                        . $formatDaftarList($mendukung);
                 }
 
                 $keterangan = sprintf(
@@ -663,7 +682,7 @@ if (strtolower($status) == 'kritis') {
         data: {
             labels: <?php echo json_encode($labelSemester); ?>,
             datasets: [{
-                label: 'IPK',
+                label: 'IP Semester',
                 data: <?php echo json_encode($dataIpk); ?>,
                 backgroundColor: gradientIpk,
                 borderColor: '#366ceb',
@@ -685,7 +704,7 @@ if (strtolower($status) == 'kritis') {
                     bodyFont: { size: 13 },
                     callbacks: {
                         label: function (ctx) {
-                            return 'IPK: ' + ctx.parsed.y.toFixed(2);
+                            return 'IP Semester: ' + ctx.parsed.y.toFixed(2);
                         }
                     }
                 }

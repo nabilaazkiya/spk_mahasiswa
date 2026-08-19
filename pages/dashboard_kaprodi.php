@@ -50,7 +50,7 @@ $scatterData = ambilDataScatter($conn);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Kaprodi</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css?v=7">
+    <link rel="stylesheet" href="../assets/css/style.css?v=8">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
@@ -168,7 +168,6 @@ $scatterData = ambilDataScatter($conn);
             </div>
 
             <div class="analysis-text">
-                <h4>Kesimpulan Sebaran Mahasiswa</h4>
                 <p>
                     Dashboard ini menampilkan hasil evaluasi akademik mahasiswa
                     berdasarkan metode TOPSIS.

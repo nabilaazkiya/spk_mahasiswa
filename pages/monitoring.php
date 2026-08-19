@@ -68,7 +68,7 @@ $totalData = mysqli_num_rows($query);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Mahasiswa</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css?v=7">
+    <link rel="stylesheet" href="../assets/css/style.css?v=8">
 </head>
 <body>
 

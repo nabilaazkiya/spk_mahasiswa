@@ -7,45 +7,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-/**
- * =============================================
- * HITUNG ULANG HISTORI TOPSIS (BACKFILL)
- * =============================================
- * proses/topsis_proses.php hanya menghitung TOPSIS dari data
- * TERBARU tiap mahasiswa (data_akademik_terbaru) - sehingga
- * semester-semester LAMA yang datanya sudah lebih dulu tertimpa
- * status "terbaru"-nya tidak pernah tercatat sebagai titik tren
- * histori, walau datanya sendiri masih tersimpan lengkap di
- * tabel data_akademik (tidak pernah dihapus, hanya view
- * data_akademik_terbaru yang menyaring ke baris terbaru saja).
- *
- * Halaman ini menjalankan ulang perhitungan TOPSIS SATU KALI
- * PER NILAI SEMESTER yang pernah ada di data_akademik (bukan
- * cuma yang terbaru), lalu menyimpan tiap hasilnya sebagai titik
- * histori periode "Semester XX" tersendiri - termasuk semester-
- * semester lama yang sudah "tertimpa" statusnya.
- *
- * PENTING - keterbatasan yang disengaja:
- * - Perhitungan tetap per-kohort (skor tiap mahasiswa relatif
- *   terhadap mahasiswa lain), tapi kohort untuk semester X hanya
- *   berisi mahasiswa yang MEMANG punya data di semester X
- *   tersebut. Mahasiswa yang datanya baru mulai tercatat di
- *   semester berikutnya wajar tidak muncul di titik semester
- *   sebelum itu.
- * - Tabel solusi_ideal (referensi transien untuk proses TOPSIS
- *   LIVE) sengaja TIDAK disentuh oleh backfill ini, supaya tidak
- *   tertimpa oleh perhitungan histori. Nilai ideal untuk tiap
- *   semester dihitung lokal di sini saja.
- * - Berbeda dari topsis_proses.php, backfill ini TIDAK memakai
- *   pengecekan "ada perubahan dibanding periode terakhir" -
- *   setiap nilai semester memang dimaksudkan jadi titik histori
- *   sendiri-sendiri, jadi selalu di-upsert.
- * =============================================
- */
-
-/* =============================================
-   FUNGSI BANTUAN (sama seperti topsis_proses.php)
-   ============================================= */
 function amankanNilaiBackfill($nilai)
 {
     if (!is_numeric($nilai)) {

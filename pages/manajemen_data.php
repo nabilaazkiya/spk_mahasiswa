@@ -67,7 +67,7 @@ if ($cekDosen) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manajemen Data</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=7">
+    <link rel="stylesheet" href="../assets/css/style.css?v=8">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
@@ -129,39 +129,30 @@ if ($cekDosen) {
 
                 <a href="tambah_user.php" class="btn-add">+ Tambah Pengguna Baru</a>
 
-                <div class="dropdown-tools" id="dropdownTools">
-                    <button type="button" class="btn-add" onclick="document.getElementById('dropdownTools').classList.toggle('open')">
-                        &#9881; Alat Sinkronisasi &#9662;
+                <div class="dropdown-tools" id="dropdownImport">
+                    <button type="button" class="btn-add" onclick="document.getElementById('dropdownImport').classList.toggle('open')">
+                        Import dari CSV/XLSX &#9662;
                     </button>
                     <div class="dropdown-tools-menu">
-                        <a
-                            href="../proses/sinkron_dpa_manual.php"
-                            title="Hubungkan ulang semua akun DPA ke mahasiswa yang sudah ada di database (untuk akun DPA lama yang belum pernah tersambung)"
-                            onclick="return confirm('Sinkronkan ulang SEMUA akun DPA dengan data mahasiswa yang sudah ada di database sekarang?');"
-                        >
-                            &#8635; Sinkronkan Ulang Semua DPA
+                        <a href="#" onclick="document.getElementById('fileImport').click(); document.getElementById('dropdownImport').classList.remove('open'); return false;">
+                            &#128228; Upload Dokumen
                         </a>
-                        <a
-                            href="../proses/topsis_backfill.php"
-                            title="Hitung ulang TOPSIS untuk setiap semester lama yang datanya sudah ada di database, supaya grafik tren TOPSIS ikut menampilkan histori semester-semester sebelumnya"
-                            onclick="return confirm('Hitung ulang histori TOPSIS untuk semua semester yang datanya sudah ada di database? Proses ini bisa memakan waktu jika data cukup banyak.');"
-                        >
-                            &#8635; Hitung Ulang Histori TOPSIS
+                        <a href="../assets/templates/Template_Format_Data.xlsx" download="Template_Format_Data.xlsx">
+                            &#128229; Download Template Data Excel
                         </a>
                     </div>
-                </div>
 
-                <form method="POST" action="../proses/input_data.php" enctype="multipart/form-data">
-                    <label for="fileImport" class="btn-add">Import dari CSV/XLSX</label>
-                    <input 
-                        type="file" 
-                        id="fileImport" 
-                        name="file_import" 
-                        accept=".csv,.xlsx" 
-                        hidden 
-                        required
-                    >
-                </form>
+                    <form id="formImport" method="POST" action="../proses/input_data.php" enctype="multipart/form-data">
+                        <input 
+                            type="file" 
+                            id="fileImport" 
+                            name="file_import" 
+                            accept=".csv,.xlsx" 
+                            hidden 
+                            required
+                        >
+                    </form>
+                </div>
             </div>
 
             <div class="sync-info">
@@ -285,7 +276,7 @@ document.getElementById('fileImport').addEventListener('change', function() {
 });
 
 document.addEventListener('click', function(e) {
-    var dropdown = document.getElementById('dropdownTools');
+    var dropdown = document.getElementById('dropdownImport');
     if (dropdown && !dropdown.contains(e.target)) {
         dropdown.classList.remove('open');
     }

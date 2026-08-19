@@ -9,40 +9,6 @@ if (!isset($_SESSION['role'])) {
     exit; 
 }
 
-/* PERBAIKAN BUG (revisi ke-3): sebelumnya "periode_evaluasi"
-   diambil dari TANGGAL proses TOPSIS dijalankan
-   (date('Y-m-d')). Karena TOPSIS otomatis dijalankan ulang
-   setiap kali admin upload data (lihat proses/input_data.php),
-   dan admin sering upload beberapa semester di HARI YANG SAMA,
-   upload kedua akan memakai periode (tanggal) yang SAMA dengan
-   upload pertama - sehingga baris ranking_topsis/hasil_evaluasi
-   yang sudah ada untuk hari itu hanya DITIMPA (UPDATE), bukan
-   dicatat sebagai titik tren baru. Akibatnya grafik tren TOPSIS
-   di Detail Mahasiswa selalu mentok di 1 titik walau datanya
-   sudah mencakup beberapa semester.
-
-   Solusi: "periode_evaluasi" sekarang diambil PER MAHASISWA dari
-   kolom semester miliknya sendiri di data_akademik (bukan
-   tanggal global) - lihat langkah 8 & 10/11 di bawah. Setiap
-   mahasiswa progres semesternya sendiri-sendiri, jadi ini juga
-   lebih akurat mencerminkan histori akademik masing-masing
-   dibanding tanggal proses. */
-
-/* =============================================
-   1. HAPUS DATA LAMA
-   PERBAIKAN: ranking_topsis dan hasil_evaluasi TIDAK LAGI
-   dihapus semua di sini. Sebelumnya setiap proses TOPSIS
-   dijalankan ulang, seluruh histori periode sebelumnya ikut
-   terhapus - sehingga grafik tren skor TOPSIS antar periode
-   (di Detail Mahasiswa) tidak pernah bisa punya lebih dari
-   1 titik data. Sekarang keduanya di-UPSERT per (nim, periode)
-   di bagian bawah (lihat langkah 10 & 11).
-
-   solusi_ideal TETAP dihapus setiap run karena sifatnya hanya
-   data referensi transien untuk perhitungan (nilai ideal
-   positif/negatif per kriteria pada saat itu), bukan histori
-   yang perlu ditampilkan ke pengguna.
-   ============================================= */
 mysqli_query($conn, "DELETE FROM solusi_ideal");
 
 /* =============================================
