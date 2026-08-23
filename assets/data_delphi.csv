@@ -1,12 +1,12 @@
 kode_kriteria,nama_kriteria,kolom_data,jenis,pakar_1,pakar_2,pakar_3,pakar_4,pakar_5,pakar_6
-C1,Jalur Masuk,jalur_masuk,benefit,3,2,5,2,3,4
-C2,IP Semester,ip_semester,benefit,5,5,2,4,4,4
+C1,Jalur Masuk,jalur_masuk,benefit,3,2,4,2,3,4
+C2,IP Semester,ip_semester,benefit,5,5,4,4,4,4
 C3,IPK,ipk,benefit,5,5,4,5,5,5
 C4,SKS Diambil,sks_diambil,benefit,4,5,4,4,4,5
 C5,SKS Lulus,sks_lulus,benefit,5,5,5,5,4,4
 C6,SKS Nilai Kurang B,sks_nilai_kurang_b,cost,5,4,4,4,4,3
 C7,Jumlah Mengulang,jml_mengulang,cost,4,4,3,4,3,3
 C8,Absensi,absensi,benefit,4,2,2,4,3,3
-C9,Sisa Masa Studi,sisa_masa_studi,benefit,4,4,3,4,4,5
+C9,Sisa Masa Studi,sisa_masa_studi,cost,4,4,3,4,4,5
 C10,Skor TOEFL,skor_toefl,benefit,4,4,4,4,3,4
 C11,Semester,semester,cost,4,4,3,4,4,5

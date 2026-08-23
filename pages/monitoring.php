@@ -39,6 +39,8 @@ if ($sort == 'ipk') {
     $orderBy = "r.nilai_preferensi DESC";
 } elseif ($sort == 'status') {
     $orderBy = "h.status_early_warning ASC";
+} elseif ($sort == 'angkatan') {
+    $orderBy = "m.angkatan DESC";
 }
 
 $query = mysqli_query($conn, "
@@ -48,12 +50,14 @@ $query = mysqli_query($conn, "
         d.dosen_pa,
         d.ipk,
         d.sks_lulus,
+        m.angkatan,
         r.nilai_preferensi,
         r.ranking,
         h.status_early_warning
     FROM data_akademik_terbaru d
     LEFT JOIN ranking_topsis_terbaru r ON d.nim = r.nim
     LEFT JOIN hasil_evaluasi_terbaru h ON d.nim = h.nim
+    LEFT JOIN mahasiswa m ON d.nim = m.nim
     $where
     ORDER BY $orderBy
 ");
@@ -117,6 +121,7 @@ $totalData = mysqli_num_rows($query);
                         <!-- <option value="ranking" <?php if ($sort == 'ranking') echo 'selected'; ?>>Ranking</option> -->
                         <option value="ipk" <?php if ($sort == 'ipk') echo 'selected'; ?>>IPK</option>
                         <option value="skor" <?php if ($sort == 'skor') echo 'selected'; ?>>Skor TOPSIS</option>
+                        <option value="angkatan" <?php if ($sort == 'angkatan') echo 'selected'; ?>>Angkatan</option>
                         <!-- <option value="status" <?php if ($sort == 'status') echo 'selected'; ?>>Status</option> -->
                     </select>
                 </div>

@@ -58,7 +58,6 @@ if (!$data) {
     exit;
 }
 
-/* AMBIL HASIL SPEARMAN TERBARU */
 $spearman = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT *
     FROM uji_spearman
@@ -66,8 +65,6 @@ $spearman = mysqli_fetch_assoc(mysqli_query($conn, "
     LIMIT 1
 "));
 
-/* RIWAYAT IP SEMESTER (bukan IPK kumulatif - supaya grafik tren
-   benar-benar menunjukkan naik-turun performa TIAP semester) */
 $riwayatQuery = mysqli_query($conn, "
     SELECT semester, ip_semester
     FROM data_akademik
@@ -333,11 +330,6 @@ if (strtolower($status) == 'kritis') {
                     'Sangat Baik' => 'Kondisi akademik mahasiswa sangat baik. Dosen PA disarankan untuk mendorong mahasiswa mengikuti kegiatan akademik atau penelitian yang lebih menantang.'
                 ];
 
-                /* Rentang nilai preferensi TOPSIS per kategori,
-                   mengikuti aturan yang sama persis dengan yang
-                   dipakai saat proses TOPSIS (lihat topsis_proses.php):
-                   0.00 - 0.25 = Kritis, 0.26 - 0.50 = Waspada,
-                   0.51 - 0.75 = Aman, 0.76 - 1.00 = Sangat Baik */
                 $rentangMap = [
                     'Kritis'      => '0.00 – 0.25',
                     'Waspada'     => '0.26 – 0.50',
@@ -346,24 +338,7 @@ if (strtolower($status) == 'kritis') {
                 ];
                 $rentang    = $rentangMap[$statusLabel] ?? '-';
 
-                /* =============================================
-                   ANALISIS KONTRIBUSI PER KRITERIA
-                   =============================================
-                   Menjelaskan kriteria APA yang paling menekan
-                   dan paling mendukung skor TOPSIS mahasiswa ini,
-                   dengan menghitung ulang matriks TOPSIS untuk
-                   kohort mahasiswa lain yang berada di semester
-                   yang sama (mirip proses/topsis_backfill.php),
-                   lalu melihat seberapa dekat nilai terbobot
-                   mahasiswa ini terhadap solusi ideal positif
-                   dibanding solusi ideal negatif, PER KRITERIA.
-
-                   Kriteria dengan kontribusi mendekati 0 = paling
-                   dekat ke solusi ideal NEGATIF (paling menekan
-                   skor). Kriteria dengan kontribusi mendekati 1 =
-                   paling dekat ke solusi ideal POSITIF (paling
-                   mendukung skor).
-                   ============================================= */
+               
                 function amankanNilaiAnalisis($n)
                 {
                     if (!is_numeric($n)) return 0;
@@ -538,11 +513,28 @@ if (strtolower($status) == 'kritis') {
 
                 $penjelasanKriteria = '';
                 if (count($kontribusiKriteria) >= 2) {
-                    $jumlahSorot = min(2, (int) floor(count($kontribusiKriteria) / 2));
-                    $jumlahSorot = max(1, $jumlahSorot);
+                    /* PERBAIKAN: kriteria hanya dianggap "menekan" jika kontribusinya
+                       benar-benar < 0.5 (lebih dekat ke solusi ideal NEGATIF), dan
+                       hanya dianggap "mendukung" jika > 0.5 (lebih dekat ke solusi
+                       ideal POSITIF). Sebelumnya daftar selalu dibelah dua rata tanpa
+                       cek ambang batas ini, sehingga kriteria yang sebenarnya bagus
+                       bisa ikut terlabeli "menekan skor" hanya karena kebagian di
+                       separuh bawah urutan. Kalau salah satu sisi tidak ada yang
+                       benar-benar memenuhi syarat, bagian itu tidak ditampilkan. */
+                    $kandidatMenekan = array_filter($kontribusiKriteria, function ($k) {
+                        return $k['kontribusi'] < 0.5;
+                    });
+                    $kandidatMendukung = array_filter($kontribusiKriteria, function ($k) {
+                        return $k['kontribusi'] > 0.5;
+                    });
 
-                    $menekan = array_slice($kontribusiKriteria, 0, $jumlahSorot);
-                    $mendukung = array_slice(array_reverse($kontribusiKriteria), 0, $jumlahSorot);
+                    $jumlahSorotMenekan   = min(2, count($kandidatMenekan));
+                    $jumlahSorotMendukung = min(2, count($kandidatMendukung));
+
+                    /* $kandidatMenekan sudah terurut naik (terendah dulu) -> ambil dari depan */
+                    $menekan = array_slice(array_values($kandidatMenekan), 0, $jumlahSorotMenekan);
+                    /* $kandidatMendukung perlu dibalik dulu supaya yang TERTINGGI di depan */
+                    $mendukung = array_slice(array_reverse(array_values($kandidatMendukung)), 0, $jumlahSorotMendukung);
 
                     /* PERBAIKAN: daftar kriteria ditampilkan MENURUN
                        (satu baris per kriteria) memakai <ul><li>,
@@ -558,10 +550,14 @@ if (strtolower($status) == 'kritis') {
                         return '<ul style="margin:4px 0 8px 18px;padding:0;">' . implode('', $items) . '</ul>';
                     };
 
-                    $penjelasanKriteria = '<br><strong>Kriteria yang paling menekan skor:</strong>'
-                        . $formatDaftarList($menekan)
-                        . '<strong>Kriteria yang paling mendukung skor:</strong>'
-                        . $formatDaftarList($mendukung);
+                    if (!empty($menekan)) {
+                        $penjelasanKriteria .= '<br><strong>Kriteria yang paling menekan skor:</strong>'
+                            . $formatDaftarList($menekan);
+                    }
+                    if (!empty($mendukung)) {
+                        $penjelasanKriteria .= '<br><strong>Kriteria yang paling mendukung skor:</strong>'
+                            . $formatDaftarList($mendukung);
+                    }
                 }
 
                 $keterangan = sprintf(

@@ -16,20 +16,37 @@ if (mysqli_num_rows($cekKolom) == 0) {
     ");
 }
 
-/* DATA DELPHI ITERASI 1 */
-$dataDelphi = [
-    ["kode" => "C1", "nama" => "Jalur Masuk", "kolom" => "jalur_masuk", "jenis" => "benefit", "nilai" => [3, 3, 4, 3, 4]],
-    ["kode" => "C2", "nama" => "IP Semester", "kolom" => "ip_semester", "jenis" => "benefit", "nilai" => [5, 5, 4, 5, 5]],
-    ["kode" => "C3", "nama" => "IPK", "kolom" => "ipk", "jenis" => "benefit", "nilai" => [5, 5, 5, 5, 5]],
-    ["kode" => "C4", "nama" => "SKS Diambil", "kolom" => "sks_diambil", "jenis" => "benefit", "nilai" => [4, 4, 4, 5, 4]],
-    ["kode" => "C5", "nama" => "SKS Lulus", "kolom" => "sks_lulus", "jenis" => "benefit", "nilai" => [5, 4, 5, 5, 4]],
-    ["kode" => "C6", "nama" => "SKS Nilai Kurang C", "kolom" => "sks_nilai_kurang_c", "jenis" => "cost", "nilai" => [4, 5, 4, 4, 5]],
-    ["kode" => "C7", "nama" => "Jumlah Mengulang", "kolom" => "jml_mengulang", "jenis" => "cost", "nilai" => [5, 5, 4, 5, 5]],
-    ["kode" => "C8", "nama" => "Absensi", "kolom" => "absensi", "jenis" => "cost", "nilai" => [4, 4, 5, 4, 4]],
-    ["kode" => "C9", "nama" => "Sisa Masa Studi", "kolom" => "sisa_masa_studi", "jenis" => "cost", "nilai" => [5, 4, 5, 5, 5]],
-    ["kode" => "C10", "nama" => "Skor TOEFL", "kolom" => "skor_toefl", "jenis" => "benefit", "nilai" => [3, 4, 3, 4, 3]],
-    ["kode" => "C11", "nama" => "Semester", "kolom" => "semester", "jenis" => "cost", "nilai" => [4, 4, 3, 4, 4]]
-];
+$fileCsvDelphi = "../assets/data_delphi.csv";
+$dataDelphi = [];
+
+if (file_exists($fileCsvDelphi)) {
+    $fileHandle = fopen($fileCsvDelphi, "r");
+    $headerCsv = fgetcsv($fileHandle);
+
+    while (($rowCsv = fgetcsv($fileHandle)) !== false) {
+        $rowAssoc = array_combine($headerCsv, $rowCsv);
+
+        $nilaiPakar = [];
+        foreach ($rowAssoc as $key => $value) {
+            if (strpos($key, 'pakar_') === 0) {
+                $nilaiPakar[] = floatval($value);
+            }
+        }
+
+        if (count($nilaiPakar) == 0) {
+            continue;
+        }
+
+        $dataDelphi[] = [
+            "kode"  => trim($rowAssoc['kode_kriteria']),
+            "nama"  => trim($rowAssoc['nama_kriteria']),
+            "kolom" => trim($rowAssoc['kolom_data']),
+            "jenis" => strtolower(trim($rowAssoc['jenis'])),
+            "nilai" => $nilaiPakar
+        ];
+    }
+    fclose($fileHandle);
+}
 
 /* HITUNG RATA-RATA DELPHI */
 $totalRataRata = 0;
@@ -136,8 +153,15 @@ $totalKriteria = mysqli_num_rows($kriteria);
                 <h2>Konfigurasi Kriteria</h2>
                 <p>
                     Halaman ini menampilkan seluruh kriteria hasil pembobotan Delphi
-                    yang dihitung otomatis di dalam kode dan digunakan dalam proses TOPSIS dan SAW.
+                    yang dihitung otomatis dari file <code>assets/data_delphi.csv</code>
+                    dan digunakan dalam proses TOPSIS dan SAW.
                 </p>
+                <?php if (!file_exists($fileCsvDelphi)): ?>
+                    <p style="color:#b91c1c; font-weight:600;">
+                        &#9888; File assets/data_delphi.csv tidak ditemukan. Bobot Delphi tidak dapat dihitung ulang -
+                        data kriteria yang tampil di bawah adalah data lama dari database.
+                    </p>
+                <?php endif; ?>
             </div>
 
             <table class="data-table criteria-table">
@@ -204,7 +228,7 @@ $totalKriteria = mysqli_num_rows($kriteria);
                         <?php echo (abs($totalBobot - 1.00) < 0.001) ? '✅' : '❌'; ?>
                     </h2>
                     <p>Total kriteria: <?php echo $totalKriteria; ?></p>
-                    <p>Bobot Delphi dihitung otomatis dari nilai pakar yang ditanam langsung di dalam kode.</p>
+                    <p>Bobot Delphi dihitung otomatis dari nilai pakar di file assets/data_delphi.csv.</p>
                 </div>
             </section>
         </section>
