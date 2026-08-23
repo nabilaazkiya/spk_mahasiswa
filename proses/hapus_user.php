@@ -8,7 +8,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 }
 
 if (isset($_GET['id'])) {
-    $id_user = $_GET['id'];
+    $id_user = (int) $_GET['id'];
 
     // Ambil nama user sebelum dihapus
     $dataUser = mysqli_fetch_assoc(mysqli_query($conn, "

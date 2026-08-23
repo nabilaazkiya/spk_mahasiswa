@@ -2,7 +2,7 @@
 session_start();
 include "../config/database.php";
 
-$username = $_POST['username'];
+$username = mysqli_real_escape_string($conn, $_POST['username']);
 $password = $_POST['password'];
 
 $query = mysqli_query($conn, "SELECT * FROM user WHERE username='$username'");
