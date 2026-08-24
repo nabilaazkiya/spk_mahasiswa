@@ -44,7 +44,7 @@
                 >
                 </div>
 
-            <a href="#" class="forgot-link">Lupa Kata Sandi?</a>
+            <a href="#" class="forgot-link" onclick="alert('Silakan hubungi Admin Prodi untuk mengatur ulang kata sandi Anda.'); return false;">Lupa Kata Sandi?</a>
 
             <button type="submit" class="login-button">Log In</button>
         </form>
