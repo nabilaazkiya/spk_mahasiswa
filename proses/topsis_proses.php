@@ -144,8 +144,28 @@ function ambilNilaiTopsis($mhs, $kolomData)
        SKS mahasiswa dengan kecepatan idealnya sendiri - bukan
        jumlah SKS absolut. Patokan 20 SKS/semester dipakai apa
        adanya sesuai semester mahasiswa (tidak dibatasi di
-       semester 7 untuk mahasiswa yang sudah lebih dari itu). */
+       semester 7 untuk mahasiswa yang sudah lebih dari itu).
+
+       PERBAIKAN LANJUTAN: syarat kelulusan program studi adalah
+       minimal 145 SKS. Kalau SKS Lulus + SKS Diambil (semester
+       berjalan) SUDAH mencapai/melewati 145, mahasiswa itu sudah
+       aman secara total beban studi - SKS Diambil semester ini
+       yang sedikit BUKAN masalah (wajar, karena sisa mata kuliah
+       yang perlu diambil memang tinggal sedikit). Maka untuk
+       kolom sks_lulus maupun sks_diambil, kondisi ini langsung
+       diberi skor maksimal (1), tanpa dihitung rasio per semester
+       seperti mahasiswa lain yang belum mencapai 145 SKS. */
     if ($kolomData == 'sks_lulus' || $kolomData == 'sks_diambil') {
+        $sksLulusVal   = (isset($mhs['sks_lulus']) && is_numeric($mhs['sks_lulus']))
+            ? floatval($mhs['sks_lulus']) : 0;
+        $sksDiambilVal = (isset($mhs['sks_diambil']) && is_numeric($mhs['sks_diambil']))
+            ? floatval($mhs['sks_diambil']) : 0;
+        $totalSksMenujuKelulusan = $sksLulusVal + $sksDiambilVal;
+
+        if ($totalSksMenujuKelulusan >= 145) {
+            return 1;
+        }
+
         $semester = isset($mhs['semester']) ? floatval($mhs['semester']) : 0;
         if ($semester <= 0) {
             return 0;
@@ -388,19 +408,6 @@ ksort($snapshotBaru);
 
 $adaPerubahanDibandingPeriodeTerakhir = empty($snapshotLama) || ($snapshotLama !== $snapshotBaru);
 
-/* =============================================
-   10. SIMPAN KE ranking_topsis
-   PERBAIKAN: upsert per (nim, periode_evaluasi) - bukan
-   INSERT polos ke tabel yang sudah dikosongkan. Kalau
-   proses ini dijalankan berkali-kali di HARI YANG SAMA
-   (periode sama), baris yang sama akan diperbarui, bukan
-   duplikat. Kalau tanggalnya beda (periode baru), baris
-   baru akan tersimpan sebagai titik histori baru.
-
-   Loop ini hanya berjalan kalau memang ADA PERUBAHAN
-   dibanding periode terakhir (lihat langkah 9b) - supaya
-   tidak membuat titik histori baru yang redundan.
-   ============================================= */
 $ranking = 1;
 $gagalSimpanRanking = [];
 

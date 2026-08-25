@@ -358,7 +358,26 @@ if (strtolower($status) == 'kritis') {
                         if ($l == 'mandiri') return 2;
                         return 1;
                     }
+                    /* PERBAIKAN: syarat kelulusan program studi adalah
+                       minimal 145 SKS. Kalau SKS Lulus + SKS Diambil
+                       (semester berjalan) SUDAH mencapai/melewati 145,
+                       mahasiswa sudah aman secara total beban studi -
+                       SKS Diambil semester ini yang sedikit BUKAN
+                       masalah. Disamakan dengan ambilNilaiTopsis() di
+                       proses/topsis_proses.php supaya konsisten dan
+                       tidak ada lagi kriteria yang salah tercantum
+                       sebagai "menekan skor" di halaman ini. */
                     if ($kolom == 'sks_lulus' || $kolom == 'sks_diambil') {
+                        $sksLulusVal   = (isset($mhs['sks_lulus']) && is_numeric($mhs['sks_lulus']))
+                            ? floatval($mhs['sks_lulus']) : 0;
+                        $sksDiambilVal = (isset($mhs['sks_diambil']) && is_numeric($mhs['sks_diambil']))
+                            ? floatval($mhs['sks_diambil']) : 0;
+                        $totalSksMenujuKelulusan = $sksLulusVal + $sksDiambilVal;
+
+                        if ($totalSksMenujuKelulusan >= 145) {
+                            return 1;
+                        }
+
                         $semester = isset($mhs['semester']) ? floatval($mhs['semester']) : 0;
                         if ($semester <= 0) return 0;
                         $sksIdeal  = $semester * 20;
