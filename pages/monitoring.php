@@ -2,20 +2,22 @@
 session_start();
 include "../config/database.php";
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] != 'kaprodi') {
+if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['kaprodi', 'admin', 'dpa'])) {
     header("Location: ../login.php");
     exit;
 }
+
+$role = $_SESSION['role'];
 
 $keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 $sort = isset($_GET['sort']) ? $_GET['sort'] : 'ranking';
 
 $where = "WHERE 1=1";
 
-/* CATATAN: blok pengecekan role 'dpa' yang sebelumnya ada di sini
-   dihapus karena tidak pernah tereksekusi (dead code) - halaman
-   ini sudah membatasi akses hanya untuk role 'kaprodi' di baris
-   atas, jadi $_SESSION['role'] tidak mungkin bernilai 'dpa' di titik ini. */
+if ($role === 'dpa') {
+    $idDpa = mysqli_real_escape_string($conn, $_SESSION['id_user']);
+    $where .= " AND m.id_user = '$idDpa'";
+}
 
 if ($keyword != '') {
     $keywordSafe = mysqli_real_escape_string($conn, $keyword);
@@ -55,14 +57,20 @@ $query = mysqli_query($conn, "
         r.ranking,
         h.status_early_warning
     FROM data_akademik_terbaru d
+    " . ($role === 'dpa' ? "INNER JOIN mahasiswa m ON d.nim = m.nim" : "LEFT JOIN mahasiswa m ON d.nim = m.nim") . "
     LEFT JOIN ranking_topsis_terbaru r ON d.nim = r.nim
     LEFT JOIN hasil_evaluasi_terbaru h ON d.nim = h.nim
-    LEFT JOIN mahasiswa m ON d.nim = m.nim
     $where
     ORDER BY $orderBy
 ");
 
 $totalData = mysqli_num_rows($query);
+
+/* Halaman ini melayani 3 role sekaligus - tentukan
+   link Dashboard, judul, dan label sesuai role aktif. */
+$dashboardPage = ($role === 'dpa') ? 'dashboard_dpa.php' : (($role === 'admin') ? 'dashboard_admin.php' : 'dashboard_kaprodi.php');
+$roleLabel     = ($role === 'dpa') ? 'Dosen PA' : (($role === 'admin') ? 'Admin' : 'Kaprodi');
+$judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh Mahasiswa';
 ?>
 
 <!DOCTYPE html>
@@ -92,8 +100,12 @@ $totalData = mysqli_num_rows($query);
         </div>
 
         <nav class="nav-menu">
-            <a href="dashboard_kaprodi.php" class="nav-link">Dashboard</a>
+            <a href="<?php echo $dashboardPage; ?>" class="nav-link">Dashboard</a>
             <a href="monitoring.php" class="nav-link active">Monitoring</a>
+            <?php if ($role === 'admin'): ?>
+            <a href="manajemen_data.php" class="nav-link">Manajemen Data</a>
+            <a href="konfigurasi_kriteria.php" class="nav-link">Konfigurasi Kriteria</a>
+            <?php endif; ?>
         </nav>
 
         <a href="../logout.php" class="logout-button">LOGOUT</a>
@@ -106,7 +118,7 @@ $totalData = mysqli_num_rows($query);
             <div class="admin-info">
                 <div>
                     <strong><?php echo $_SESSION['nama_lengkap']; ?></strong><br>
-                    <small>Kaprodi</small>
+                    <small><?php echo $roleLabel; ?></small>
                 </div>
                 <div class="admin-avatar"></div>
             </div>
@@ -144,7 +156,7 @@ $totalData = mysqli_num_rows($query);
 
         <section class="section-content monitoring-content">
             <div class="monitoring-title">
-                <h2>Monitoring Seluruh Mahasiswa</h2>
+                <h2><?php echo $judulHalaman; ?></h2>
                 <p><?php echo $totalData; ?> total</p>
             </div>
 
@@ -155,7 +167,9 @@ $totalData = mysqli_num_rows($query);
                         <th>Ranking</th>
                         <th>NIM</th>
                         <th>Nama</th>
+                        <?php if ($role !== 'dpa'): ?>
                         <th>Dosen PA</th>
+                        <?php endif; ?>
                         <th>IPK</th>
                         <th>SKS</th>
                         <th>Skor TOPSIS</th>
@@ -171,7 +185,9 @@ $totalData = mysqli_num_rows($query);
                             <td><?php echo $row['ranking'] ?? '-'; ?></td>
                             <td><?php echo $row['nim']; ?></td>
                             <td><?php echo $row['nama_mahasiswa']; ?></td>
+                            <?php if ($role !== 'dpa'): ?>
                             <td><?php echo $row['dosen_pa']; ?></td>
+                            <?php endif; ?>
                             <td><?php echo $row['ipk']; ?></td>
                             <td><?php echo $row['sks_lulus']; ?></td>
                             <td><?php echo $row['nilai_preferensi'] ? number_format($row['nilai_preferensi'], 4) : '-'; ?></td>
@@ -185,7 +201,9 @@ $totalData = mysqli_num_rows($query);
                         <?php } ?>
                     <?php } else { ?>
                         <tr>
-                            <td colspan="9" style="text-align:center;">Data tidak ditemukan</td>
+                            <td colspan="<?php echo $role !== 'dpa' ? 9 : 8; ?>" style="text-align:center;">
+                                <?php echo $role === 'dpa' ? 'Tidak ada mahasiswa bimbingan' : 'Data tidak ditemukan'; ?>
+                            </td>
                         </tr>
                     <?php } ?>
                 </tbody>

@@ -90,7 +90,7 @@ $scatterData = ambilDataScatter($conn, "AND m.id_user = '$idDpa'");
 
         <nav class="nav-menu">
             <a href="dashboard_dpa.php" class="nav-link active">Dashboard</a>
-            <a href="monitoring_dpa.php" class="nav-link">Monitoring</a>
+            <a href="monitoring.php" class="nav-link">Monitoring</a>
         </nav>
 
         <a href="../logout.php" class="logout-button">LOGOUT</a>
@@ -126,7 +126,7 @@ $scatterData = ambilDataScatter($conn, "AND m.id_user = '$idDpa'");
                 <small>Mahasiswa</small>
             </div>
 
-            <a href="monitoring_dpa.php" class="detail-button">Lihat Detail</a>
+            <a href="monitoring.php" class="detail-button">Lihat Detail</a>
         </section>
 
         <!-- SECTION 4: KATEGORI -->
@@ -191,7 +191,7 @@ $scatterData = ambilDataScatter($conn, "AND m.id_user = '$idDpa'");
                     pembinaan akademik oleh Dosen PA.
                 </p>
 
-                <a href="monitoring_dpa.php" class="detail-button">Lihat Detail</a>
+                <a href="monitoring.php" class="detail-button">Lihat Detail</a>
             </div>
         </section>
 

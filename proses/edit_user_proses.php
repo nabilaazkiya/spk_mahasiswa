@@ -31,6 +31,34 @@ if (mysqli_num_rows($cekUsername) > 0) {
     exit;
 }
 
+/* PERBAIKAN: cek nama lengkap duplikat HANYA DI ROLE YANG
+   SAMA (lihat penjelasan lengkap di tambah_user_proses.php) -
+   satu orang boleh punya akun Kaprodi + DPA sekaligus dengan
+   nama sama, itu bukan masalah. Mengecualikan akun yang
+   sedang diedit sendiri via id_user != $id_user. */
+$namaLengkapTrim = trim($_POST['nama_lengkap']);
+$cekNama = mysqli_query($conn, "
+    SELECT nama_lengkap, role FROM user
+    WHERE TRIM(nama_lengkap) = '" . mysqli_real_escape_string($conn, $namaLengkapTrim) . "'
+    AND role = '$role'
+    AND id_user != '$id_user'
+");
+
+if ($cekNama && mysqli_num_rows($cekNama) > 0) {
+    $pesanDuplikat = json_encode(
+        "Nama \"$namaLengkapTrim\" sudah dipakai oleh akun lain dengan role \"$role\" yang sama. " .
+        "Nama lengkap harus unik di dalam role yang sama untuk mencegah kesalahan pencocokan data mahasiswa."
+    );
+
+    echo "
+        <script>
+            alert($pesanDuplikat);
+            window.location='../pages/edit_user.php?id=$id_user';
+        </script>
+    ";
+    exit;
+}
+
 if ($password != '') {
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
 

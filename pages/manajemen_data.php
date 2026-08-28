@@ -87,6 +87,7 @@ if ($cekDosen) {
 
         <nav class="nav-menu">
             <a href="dashboard_admin.php" class="nav-link">Dashboard</a>
+            <a href="monitoring.php" class="nav-link">Monitoring</a>
             <a href="manajemen_data.php" class="nav-link active">Manajemen Data</a>
             <a href="konfigurasi_kriteria.php" class="nav-link">Konfigurasi Kriteria</a>
         </nav>

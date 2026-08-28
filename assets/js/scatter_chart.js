@@ -142,8 +142,14 @@ function renderScatterChart(canvasId, dataPoints, resetZoomBtnId, onClickPoint) 
                     position: 'top',
                     labels: {
                         usePointStyle: true,
-                        pointStyle: 'circle',
-                        boxWidth: 8,
+                        /* PERBAIKAN (UAT): legend sebelumnya pakai 'circle',
+                           sama persis dengan bentuk titik mahasiswa di
+                           grafik - ambigu, sulit dibedakan. Diganti jadi
+                           kotak ('rect') khusus untuk legend saja - titik
+                           data mahasiswa tetap bulat, tidak diubah. */
+                        pointStyle: 'rect',
+                        boxWidth: 12,
+                        boxHeight: 12,
                         padding: 16,
                         font: { size: 12, family: '"Segoe UI", Arial, sans-serif' }
                     }

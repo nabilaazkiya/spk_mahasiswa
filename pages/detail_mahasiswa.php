@@ -2,7 +2,7 @@
 session_start();
 include "../config/database.php";
 
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['kaprodi', 'dpa'])) {
+if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['kaprodi', 'dpa', 'admin'])) {
     header("Location: ../login.php");
     exit;
 }
@@ -14,9 +14,12 @@ if ($nim == '') {
     exit;
 }
 
-$backPage      = ($_SESSION['role'] == 'dpa') ? 'monitoring_dpa.php' : 'monitoring.php';
-$dashboardPage = ($_SESSION['role'] == 'dpa') ? 'dashboard_dpa.php' : 'dashboard_kaprodi.php';
-$roleLabel     = ($_SESSION['role'] == 'dpa') ? 'Dosen PA' : 'Kaprodi';
+/* PERBAIKAN (paritas Admin = Kaprodi): admin diperlakukan
+   sama seperti kaprodi di halaman ini - kembali ke monitoring.php,
+   dashboard_admin.php, dan tidak dibatasi WHERE per-DPA. */
+$backPage      = 'monitoring.php';
+$dashboardPage = ($_SESSION['role'] == 'dpa') ? 'dashboard_dpa.php' : (($_SESSION['role'] == 'admin') ? 'dashboard_admin.php' : 'dashboard_kaprodi.php');
+$roleLabel     = ($_SESSION['role'] == 'dpa') ? 'Dosen PA' : (($_SESSION['role'] == 'admin') ? 'Admin' : 'Kaprodi');
 
 $whereDpa = "";
 

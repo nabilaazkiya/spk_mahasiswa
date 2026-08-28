@@ -16,6 +16,22 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 require '../includes/xlsx_reader.php';
 
 /* =============================================
+   PASTIKAN KOLOM status_sia_mahasiswa SUDAH ADA
+   (digabung dari proses/tambah_kolom_status_sia.php
+   sebelumnya - sekarang otomatis dicek & ditambahkan
+   di sini tiap kali import dijalankan, jadi tidak perlu
+   file/script terpisah lagi. Aman dijalankan berkali-kali:
+   hanya ALTER TABLE kalau kolomnya memang belum ada.) */
+$cekKolomStatusSia = mysqli_query($conn, "SHOW COLUMNS FROM data_akademik LIKE 'status_sia_mahasiswa'");
+if ($cekKolomStatusSia && mysqli_num_rows($cekKolomStatusSia) === 0) {
+    mysqli_query($conn, "
+        ALTER TABLE data_akademik
+        ADD COLUMN status_sia_mahasiswa ENUM('aktif','tidak_aktif') NOT NULL DEFAULT 'aktif'
+        AFTER sks_nilai_kurang_b
+    ");
+}
+
+/* =============================================
    FUNGSI BANTUAN
    ============================================= */
 
@@ -208,6 +224,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'jalur masuk'     => 'jalur_masuk',
         'toefl'           => 'skor_toefl',
         'absensi'         => 'absensi',
+        /* Kolom baru (hasil UAT Kaprodi) - status mahasiswa
+           tidak aktif di SIA per periode akademik. Diketik
+           bebas di file sumber sebagai "Aktif" / "Tidak Aktif"
+           (case-insensitive), dinormalisasi di bawah. */
+        'status sia'      => 'status_sia_mahasiswa',
     ];
 
     $headerRow = array_shift($rows);
@@ -235,6 +256,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $kolomHilang = [];
 
     foreach ($mappingHeader as $headerCsv => $fieldDb) {
+        /* Kolom status_sia_mahasiswa dibuat OPSIONAL - supaya
+           file Excel versi lama (sebelum kolom ini ada) tetap
+           bisa diimport, tidak langsung ditolak. Kalau kolom
+           ini tidak ada di file, semua mahasiswa dianggap
+           'aktif' secara default (lihat normalisasi di bawah). */
+        if ($fieldDb === 'status_sia_mahasiswa') {
+            continue;
+        }
         if (!array_key_exists($headerCsv, $indexKolom)) {
             $kolomHilang[] = $headerCsv;
         }
@@ -294,6 +323,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $baris = [];
 
         foreach ($mappingHeader as $headerCsv => $fieldDb) {
+            if (!array_key_exists($headerCsv, $indexKolom)) {
+                /* Kolom opsional (status_sia_mahasiswa) tidak ada
+                   di file ini - biarkan null, dinormalisasi jadi
+                   'aktif' di bawah. */
+                $baris[$fieldDb] = null;
+                continue;
+            }
             $idx = $indexKolom[$headerCsv];
             $baris[$fieldDb] = $data[$idx] ?? null;
         }
@@ -317,7 +353,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $sisa_masa_studi    = $parseNumerikTerlacak($baris['sisa_masa_studi'], 0, $nim, 'Sisa Masa Studi');
         $jalur_masuk        = amankanTeks($baris['jalur_masuk']);
         $absensi            = $parseNumerikTerlacak($baris['absensi'], 0, $nim, 'Absensi');
-        $sks_nilai_kurang_c = $parseNumerikTerlacak($baris['sks_nilai_kurang_b'], 0, $nim, 'SKS Nilai Kurang B');
+        $sks_nilai_kurang_b = $parseNumerikTerlacak($baris['sks_nilai_kurang_b'], 0, $nim, 'SKS Nilai Kurang B');
+
+        /* Normalisasi status SIA - default 'aktif' kalau kosong
+           atau nilainya tidak dikenali (bukan diam-diam mengubah
+           data valid, hanya jaga-jaga file lama yang belum punya
+           kolom ini sama sekali). */
+        $statusSiaMentah = strtolower(trim((string) ($baris['status_sia_mahasiswa'] ?? '')));
+        $status_sia_mahasiswa = (strpos($statusSiaMentah, 'tidak') !== false) ? 'tidak_aktif' : 'aktif';
 
         /* PERBAIKAN BUG: sebelumnya angkatan diambil dari
            substr($nim, 0, 4) yang menghasilkan teks seperti
@@ -409,12 +452,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     jalur_masuk         = ?,
                     absensi             = ?,
                     sks_diambil         = ?,
-                    sks_nilai_kurang_b  = ?
+                    sks_nilai_kurang_b  = ?,
+                    status_sia_mahasiswa = ?
                 WHERE nim = ? AND semester = ?
             ");
             mysqli_stmt_bind_param(
                 $stmtUpdate,
-                "ssddddddsdddsd",
+                "ssddddddsdddssd",
                 $nama_mahasiswa,
                 $dosen_pa,
                 $ip_semester,
@@ -427,6 +471,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $absensi,
                 $sks_diambil,
                 $sks_nilai_kurang_b,
+                $status_sia_mahasiswa,
                 $nim,
                 $semester
             );
@@ -439,12 +484,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 INSERT INTO data_akademik (
                     nim, nama_mahasiswa, dosen_pa, semester, ip_semester, ipk,
                     skor_toefl, jml_mengulang, sks_lulus, sisa_masa_studi,
-                    jalur_masuk, absensi, sks_diambil, sks_nilai_kurang_b
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    jalur_masuk, absensi, sks_diambil, sks_nilai_kurang_b,
+                    status_sia_mahasiswa
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             mysqli_stmt_bind_param(
                 $stmtInsert,
-                "sssdddddddsddd",
+                "sssdddddddsddds",
                 $nim,
                 $nama_mahasiswa,
                 $dosen_pa,
@@ -458,7 +504,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $jalur_masuk,
                 $absensi,
                 $sks_diambil,
-                $sks_nilai_kurang_c
+                $sks_nilai_kurang_b,
+                $status_sia_mahasiswa
             );
             $okAkademik = mysqli_stmt_execute($stmtInsert);
 

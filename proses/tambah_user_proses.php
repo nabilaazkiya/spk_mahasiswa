@@ -37,6 +37,38 @@ if (mysqli_num_rows($cek) > 0) {
     exit;
 }
 
+/* PERBAIKAN: cek nama lengkap duplikat HANYA DI ROLE YANG
+   SAMA - bukan lintas semua role. Satu orang yang sama boleh
+   punya 2 akun berbeda (misal Kaprodi + DPA sekaligus), karena
+   data yang ditampilkan ke masing-masing role memang berbeda.
+   Risiko ambigu (sinkronkanMahasiswaDpa() salah sambung) HANYA
+   terjadi kalau ada 2 akun DENGAN ROLE SAMA (khususnya 2 akun
+   'dpa') bernama identik - karena fungsi sync itu sendiri sudah
+   memfilter role='dpa', jadi duplikat lintas role tidak
+   berisiko sama sekali. */
+$namaLengkapTrim = trim($_POST['nama_lengkap']);
+$cekNama = mysqli_query($conn, "
+    SELECT nama_lengkap, role FROM user
+    WHERE TRIM(nama_lengkap) = '" . mysqli_real_escape_string($conn, $namaLengkapTrim) . "'
+    AND role = '$role'
+");
+
+if ($cekNama && mysqli_num_rows($cekNama) > 0) {
+    $pesanDuplikat = json_encode(
+        "Nama \"$namaLengkapTrim\" sudah dipakai oleh akun lain dengan role \"$role\" yang sama. " .
+        "Nama lengkap harus unik di dalam role yang sama untuk mencegah kesalahan pencocokan data mahasiswa."
+    );
+
+    echo "
+        <script>
+            alert($pesanDuplikat);
+            window.location='../pages/tambah_user.php';
+        </script>
+    ";
+
+    exit;
+}
+
 /* INSERT USER */
 $query = mysqli_query($conn, "
     INSERT INTO user
