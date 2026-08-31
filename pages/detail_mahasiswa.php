@@ -133,7 +133,7 @@ if (strtolower($status) == 'kritis') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detail Mahasiswa</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=11">
+    <link rel="stylesheet" href="../assets/css/style.css?v=10">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -156,6 +156,10 @@ if (strtolower($status) == 'kritis') {
         <nav class="nav-menu">
             <a href="<?php echo $dashboardPage; ?>" class="nav-link">Dashboard</a>
             <a href="<?php echo $backPage; ?>" class="nav-link active">Monitoring</a>
+            <?php if ($_SESSION['role'] === 'admin'): ?>
+            <a href="manajemen_data.php" class="nav-link">Manajemen Data</a>
+            <a href="konfigurasi_kriteria.php" class="nav-link">Konfigurasi Kriteria</a>
+            <?php endif; ?>
         </nav>
 
         <a href="../logout.php" class="logout-button">LOGOUT</a>
@@ -204,7 +208,7 @@ if (strtolower($status) == 'kritis') {
             </div>
 
             <div class="detail-card">
-                <h4>Preferensi Model</h4>
+                <h4 class="info-clickable-text" onclick="showInfoModal('preferensi_model')">Preferensi Model</h4>
 
                 <p>
                     <?php 
@@ -241,12 +245,12 @@ if (strtolower($status) == 'kritis') {
         <section class="chart-detail-row">
 
             <div class="chart-detail-box">
-                <h3>Tren Performa Semester (IP Semester)</h3>
+                <h3 class="info-clickable-text" onclick="showInfoModal('grafik_ipk_semester')">Tren Performa Semester (IP Semester)</h3>
                 <div class="chart-canvas-wrapper"><canvas id="grafikIpk"></canvas></div>
             </div>
 
             <div class="chart-detail-box">
-                <h3>Tren Performa Mahasiswa Berdasarkan TOPSIS</h3>
+                <h3 class="info-clickable-text" onclick="showInfoModal('grafik_tren_topsis')">Tren Performa Mahasiswa Berdasarkan TOPSIS</h3>
                 <?php if (count($dataSkorTopsis) >= 2): ?>
                     <div class="chart-canvas-wrapper"><canvas id="grafikTrenTopsis"></canvas></div>
                     <small style="color:#888;display:block;margin-top:8px;">
@@ -621,7 +625,7 @@ if (strtolower($status) == 'kritis') {
                 <div class="table-scroll-wrapper">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;color:#444;">
                     <tr>
-                        <td style="padding:4px 0;width:180px;font-weight:bold;">Kategori</td>
+                        <td style="padding:4px 0;width:180px;font-weight:bold;" class="info-clickable-text" onclick="showInfoModal('kategori_status')">Kategori</td>
                         <td style="padding:4px 0;">:&nbsp;
                             <span style="font-weight:bold;color:<?php echo $border; ?>;">
                                 <?php echo $statusLabel; ?>
@@ -629,7 +633,7 @@ if (strtolower($status) == 'kritis') {
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:4px 0;font-weight:bold;">Nilai Preferensi TOPSIS</td>
+                        <td style="padding:4px 0;font-weight:bold;" class="info-clickable-text" onclick="showInfoModal('nilai_preferensi_topsis')">Nilai Preferensi TOPSIS</td>
                         <td style="padding:4px 0;">:&nbsp;<?php echo number_format($nilaiPref, 4); ?></td>
                     </tr>
                     <?php if ($rankingMhs): ?>
@@ -825,5 +829,6 @@ if (strtolower($status) == 'kritis') {
 </script>
 
 <script src="../assets/js/sidebar.js?v=2"></script>
+<script src="../assets/js/info_modal.js?v=1"></script>
 </body>
 </html>

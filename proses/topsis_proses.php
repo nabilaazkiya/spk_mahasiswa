@@ -408,6 +408,19 @@ ksort($snapshotBaru);
 
 $adaPerubahanDibandingPeriodeTerakhir = empty($snapshotLama) || ($snapshotLama !== $snapshotBaru);
 
+/* =============================================
+   10. SIMPAN KE ranking_topsis
+   PERBAIKAN: upsert per (nim, periode_evaluasi) - bukan
+   INSERT polos ke tabel yang sudah dikosongkan. Kalau
+   proses ini dijalankan berkali-kali di HARI YANG SAMA
+   (periode sama), baris yang sama akan diperbarui, bukan
+   duplikat. Kalau tanggalnya beda (periode baru), baris
+   baru akan tersimpan sebagai titik histori baru.
+
+   Loop ini hanya berjalan kalau memang ADA PERUBAHAN
+   dibanding periode terakhir (lihat langkah 9b) - supaya
+   tidak membuat titik histori baru yang redundan.
+   ============================================= */
 $ranking = 1;
 $gagalSimpanRanking = [];
 
@@ -415,6 +428,23 @@ if ($adaPerubahanDibandingPeriodeTerakhir) {
 foreach ($hasilTopsis as $hasil) {
     $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
     $periode         = mysqli_real_escape_string($conn, sprintf('Semester %02d', $hasil['semester']));
+
+    /* PERBAIKAN BUG KRITIS: sebelumnya baris di bawah memakai
+       variabel $nilaiPreferensi, $jarakPositif, $jarakNegatif -
+       padahal $jarakPositif/$jarakNegatif TIDAK PERNAH
+       didefinisikan sama sekali di file ini (selalu jadi string
+       kosong -> tersimpan sebagai 0 oleh MySQL), dan
+       $nilaiPreferensi adalah SISA dari loop perhitungan
+       sebelumnya (baris ~325-366) - bukan nilai milik mahasiswa
+       yang sedang diproses di loop INI, tapi sisa nilai milik
+       mahasiswa TERAKHIR yang diproses di loop sebelumnya.
+       Akibatnya SEMUA mahasiswa tersimpan dengan skor yang sama
+       persis, dan jarak D+/D- selalu 0. Sekarang diambil dari
+       $hasil (data per-mahasiswa yang benar, sesuai iterasi
+       foreach saat ini). */
+    $nilaiPreferensi = mysqli_real_escape_string($conn, $hasil['nilai_preferensi']);
+    $jarakPositif    = mysqli_real_escape_string($conn, $hasil['jarak_positif']);
+    $jarakNegatif    = mysqli_real_escape_string($conn, $hasil['jarak_negatif']);
 
     $cekRanking = mysqli_query($conn, "
         SELECT id_ranking FROM ranking_topsis

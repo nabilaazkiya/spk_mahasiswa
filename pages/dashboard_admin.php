@@ -70,7 +70,7 @@ $logAktivitas = mysqli_query($conn, "
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Admin</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=8">
+    <link rel="stylesheet" href="../assets/css/style.css?v=10">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
@@ -184,7 +184,7 @@ $logAktivitas = mysqli_query($conn, "
         <!-- SECTION 3C: PIE CHART (paritas dengan Kaprodi) -->
         <section class="chart-area">
             <div>
-                <h4 style="text-align:center;">Grafik Sebaran Kategori</h4>
+                <h4 class="info-clickable-text" style="text-align:center;" onclick="showInfoModal('pie_kategori')">Grafik Sebaran Kategori</h4>
                 <div class="chart-box">
                     <div class="pie-container">
                         <canvas id="pieChart"></canvas>
@@ -193,14 +193,35 @@ $logAktivitas = mysqli_query($conn, "
             </div>
 
             <div class="analysis-text">
-                <p>
-                    Dashboard ini menampilkan hasil evaluasi akademik mahasiswa
-                    berdasarkan metode TOPSIS.
-                </p>
-                <p>
-                    Mahasiswa dengan kategori Kritis dan Waspada perlu menjadi
-                    prioritas pembinaan akademik oleh Kaprodi dan Dosen PA.
-                </p>
+                <?php
+                    $totalDievaluasi = (int) $kritis['total'] + (int) $waspada['total'] + (int) $aman['total'] + (int) $sangatBaik['total'];
+                    $totalPerluPerhatian = (int) $kritis['total'] + (int) $waspada['total'];
+                    $persenPerluPerhatian = $totalDievaluasi > 0 ? round(($totalPerluPerhatian / $totalDievaluasi) * 100) : 0;
+                ?>
+                <?php if ($totalDievaluasi == 0): ?>
+                    <p>Belum ada data mahasiswa yang selesai dievaluasi.</p>
+                <?php elseif ($totalPerluPerhatian == 0): ?>
+                    <p>
+                        Seluruh <strong><?php echo $totalDievaluasi; ?> mahasiswa</strong> yang
+                        dievaluasi berada di kategori <strong>Aman</strong> atau
+                        <strong>Sangat Baik</strong>. Tidak ada yang perlu prioritas
+                        pembinaan saat ini.
+                    </p>
+                <?php else: ?>
+                    <p>
+                        <strong><?php echo $totalPerluPerhatian; ?> dari <?php echo $totalDievaluasi; ?> mahasiswa</strong>
+                        (<?php echo $persenPerluPerhatian; ?>%) berada di kategori
+                        <strong style="color:#ff6b6b;">Kritis</strong> atau
+                        <strong style="color:#e6a400;">Waspada</strong> dan perlu
+                        menjadi prioritas pembinaan akademik oleh Kaprodi dan Dosen PA.
+                    </p>
+                    <?php if ((int) $kritis['total'] > 0): ?>
+                    <p>
+                        <strong style="color:#ff6b6b;"><?php echo $kritis['total']; ?> mahasiswa</strong>
+                        di antaranya berkategori Kritis - butuh perhatian segera.
+                    </p>
+                    <?php endif; ?>
+                <?php endif; ?>
 
                 <a href="monitoring.php" class="detail-button">Lihat Detail</a>
             </div>
@@ -208,7 +229,7 @@ $logAktivitas = mysqli_query($conn, "
 
         <!-- SECTION 3D: SCATTER CHART (paritas dengan Kaprodi) -->
         <section class="scatter-box">
-            <h4 style="text-align:center;">Sebaran Mahasiswa terhadap Solusi Ideal TOPSIS</h4>
+            <h4 class="info-clickable-text" style="text-align:center;" onclick="showInfoModal('scatter_topsis')">Sebaran Mahasiswa terhadap Solusi Ideal TOPSIS</h4>
             <div class="chart-canvas-wrapper">
                 <canvas id="scatterChart"></canvas>
             </div>
@@ -275,6 +296,7 @@ $logAktivitas = mysqli_query($conn, "
 </div>
 
 <script src="../assets/js/sidebar.js?v=2"></script>
+<script src="../assets/js/info_modal.js?v=1"></script>
 
 <script>
 const pieCtx = document.getElementById('pieChart');

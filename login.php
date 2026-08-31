@@ -6,7 +6,7 @@
     <title>Login SPK Mahasiswa</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/style.css?v=8">
+    <link rel="stylesheet" href="assets/css/style.css?v=10">
 </head>
 <body class="login-body">
 
@@ -44,7 +44,7 @@
                 >
                 </div>
 
-            <a href="#" class="forgot-link" onclick="alert('Silakan hubungi Admin Prodi untuk mengatur ulang kata sandi Anda.'); return false;">Lupa Kata Sandi?</a>
+            <a href="#" class="forgot-link" onclick="alert('Fitur reset kata sandi belum tersedia. Silakan hubungi Admin Prodi untuk mengatur ulang kata sandi Anda.'); return false;">Lupa Kata Sandi?</a>
 
             <button type="submit" class="login-button">Log In</button>
         </form>

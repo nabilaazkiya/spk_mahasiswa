@@ -67,7 +67,7 @@ if ($cekDosen) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manajemen Data</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=8">
+    <link rel="stylesheet" href="../assets/css/style.css?v=10">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
@@ -237,6 +237,7 @@ if ($cekDosen) {
                             <th>Absensi</th>
                             <th>SKS Diambil</th>
                             <th>SKS Nilai Kurang B</th>
+                            <th>Status SIA</th>
                         </tr>
                     </thead>
 
@@ -258,6 +259,12 @@ if ($cekDosen) {
                             <td><?php echo htmlspecialchars($akademik['absensi']); ?></td>
                             <td><?php echo htmlspecialchars($akademik['sks_diambil']); ?></td>
                             <td><?php echo htmlspecialchars($akademik['sks_nilai_kurang_b']); ?></td>
+                            <td>
+                                <?php $statusSia = $akademik['status_sia_mahasiswa'] ?? 'aktif'; ?>
+                                <span class="status-badge <?php echo $statusSia === 'tidak_aktif' ? 'status-nonaktif' : 'status-aktif'; ?>">
+                                    <?php echo $statusSia === 'tidak_aktif' ? 'Tidak Aktif' : 'Aktif'; ?>
+                                </span>
+                            </td>
                         </tr>
                         <?php } ?>
                     </tbody>

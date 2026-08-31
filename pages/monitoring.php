@@ -14,6 +14,12 @@ $sort = isset($_GET['sort']) ? $_GET['sort'] : 'ranking';
 
 $where = "WHERE 1=1";
 
+/* PERBAIKAN (gabungan monitoring.php + monitoring_dpa.php):
+   DPA hanya boleh melihat mahasiswa bimbingannya sendiri,
+   Kaprodi & Admin melihat SELURUH mahasiswa. Sebelumnya ini
+   2 file terpisah dengan kode hampir identik (rawan tidak
+   sinkron kalau ada perbaikan di satu file tapi lupa di
+   file lainnya - seperti yang sempat terjadi). */
 if ($role === 'dpa') {
     $idDpa = mysqli_real_escape_string($conn, $_SESSION['id_user']);
     $where .= " AND m.id_user = '$idDpa'";
@@ -80,7 +86,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Mahasiswa</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css?v=8">
+    <link rel="stylesheet" href="../assets/css/style.css?v=10">
 </head>
 <body>
 
@@ -130,7 +136,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
 
                 <div class="sort-select-wrapper">
                     <select name="sort" class="sort-select" onchange="this.form.submit()">
-                        <!-- <option value="ranking" <?php if ($sort == 'ranking') echo 'selected'; ?>>Ranking</option> -->
+                        <option value="ranking" <?php if ($sort == 'ranking') echo 'selected'; ?>>Ranking</option>
                         <option value="ipk" <?php if ($sort == 'ipk') echo 'selected'; ?>>IPK</option>
                         <option value="skor" <?php if ($sort == 'skor') echo 'selected'; ?>>Skor TOPSIS</option>
                         <option value="angkatan" <?php if ($sort == 'angkatan') echo 'selected'; ?>>Angkatan</option>
@@ -172,8 +178,8 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
                         <?php endif; ?>
                         <th>IPK</th>
                         <th>SKS</th>
-                        <th>Skor TOPSIS</th>
-                        <th>Status</th>
+                        <th class="info-clickable-text" onclick="showInfoModal('nilai_preferensi_topsis')">Skor TOPSIS</th>
+                        <th class="info-clickable-text" onclick="showInfoModal('kategori_status')">Status</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -213,6 +219,19 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
     </main>
 </div>
 
+<script>
+/* PERBAIKAN: pastikan tabel dengan scroll horizontal selalu
+   mulai dari posisi PALING KIRI saat halaman dimuat - beberapa
+   browser (terutama saat kembali dari halaman lain via tombol
+   back, atau reload) bisa mempertahankan posisi scroll lama
+   dari kunjungan sebelumnya, membuat kolom pertama (Ranking,
+   NIM) tersembunyi di luar area terlihat. */
+document.querySelectorAll('.table-scroll-wrapper').forEach(function (el) {
+    el.scrollLeft = 0;
+});
+</script>
+
 <script src="../assets/js/sidebar.js?v=2"></script>
+<script src="../assets/js/info_modal.js?v=1"></script>
 </body>
 </html>

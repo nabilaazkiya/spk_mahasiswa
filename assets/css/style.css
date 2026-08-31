@@ -979,6 +979,7 @@ body {
 .dashboard-main {
     height: calc(100vh - 20px);
     overflow-y: auto;
+    overflow-x: hidden;
     padding-right: 8px;
 }
 
@@ -1313,6 +1314,30 @@ select.form-input {
 .monitoring-table td {
     font-size: 12px;
     padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* PERBAIKAN: kolom Ranking & NIM sempat terlihat kolaps/tertindih
+   dengan kolom Nama - dikunci lebar minimumnya supaya tidak pernah
+   menyusut di bawah lebar kontennya sendiri. */
+.monitoring-table th:nth-child(1),
+.monitoring-table td:nth-child(1) {
+    min-width: 50px;
+}
+
+.monitoring-table th:nth-child(2),
+.monitoring-table td:nth-child(2) {
+    min-width: 100px;
+}
+
+.monitoring-table th:nth-child(3),
+.monitoring-table td:nth-child(3) {
+    min-width: 160px;
+}
+
+.monitoring-table th .info-clickable-text {
+    border-bottom: 1px dotted #999;
 }
 
 .status-pill {
@@ -1658,4 +1683,82 @@ DETAIL MAHASISWA
     .data-table td {
         padding: 8px;
     }
+}
+
+/* =========================================================
+   MODAL PENJELASAN GRAFIK & PREFERENSI MODEL (hasil UAT DPA)
+========================================================= */
+
+.info-clickable-text {
+    cursor: pointer;
+    border-bottom: 1px dotted #006eff;
+    display: inline-block;
+}
+
+.info-clickable-text:hover {
+    color: #006eff;
+}
+
+.info-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.info-modal-overlay.open {
+    display: flex;
+}
+
+.info-modal-box {
+    background: #fff;
+    border-radius: 10px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.info-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    border-radius: 10px 10px 0 0;
+}
+
+.info-modal-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #1a1a2e;
+}
+
+.info-modal-close {
+    border: none;
+    background: none;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    color: #888;
+    padding: 0 4px;
+}
+
+.info-modal-close:hover {
+    color: #333;
+}
+
+.info-modal-body {
+    padding: 18px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
 }
