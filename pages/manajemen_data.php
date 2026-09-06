@@ -7,6 +7,44 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
+/* =============================================
+   AUTO-FIX: PASTIKAN KOLOM status_sia_mahasiswa ADA
+   Kolom ini ditambahkan ke program secara bertahap.
+   Database lama (hasil import dari sebelum kolom ini ada)
+   tidak punya kolom ini, sehingga Status SIA selalu tampil
+   'Aktif' semua. Cek + tambah otomatis di sini agar
+   tidak perlu langkah manual di laptop orang lain.
+   ============================================= */
+$cekKolomStatusSia = mysqli_query($conn, "SHOW COLUMNS FROM data_akademik LIKE 'status_sia_mahasiswa'");
+if ($cekKolomStatusSia && mysqli_num_rows($cekKolomStatusSia) === 0) {
+    mysqli_query($conn, "
+        ALTER TABLE data_akademik
+        ADD COLUMN status_sia_mahasiswa ENUM('aktif','tidak_aktif') NOT NULL DEFAULT 'aktif'
+        AFTER sks_nilai_kurang_b
+    ");
+}
+
+/* =============================================
+   AUTO-FIX: REFRESH VIEW data_akademik_terbaru
+   Setelah kolom baru ditambahkan (atau mungkin VIEW
+   dibuat sebelum kolom ini ada), VIEW perlu dibuat
+   ulang dengan CREATE OR REPLACE agar kolom
+   status_sia_mahasiswa ikut masuk ke VIEW.
+   Aman dijalankan berkali-kali (tidak merusak data).
+   ============================================= */
+mysqli_query($conn, "
+    CREATE OR REPLACE VIEW data_akademik_terbaru AS
+    SELECT da.*
+    FROM data_akademik da
+    INNER JOIN (
+        SELECT nim, MAX(id_data) AS id_data_terbaru
+        FROM data_akademik
+        GROUP BY nim
+    ) terbaru
+    ON da.nim = terbaru.nim
+    AND da.id_data = terbaru.id_data_terbaru
+");
+
 $keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
 $role = isset($_GET['role']) ? $_GET['role'] : '';
 
@@ -260,9 +298,9 @@ if ($cekDosen) {
                             <td><?php echo htmlspecialchars($akademik['sks_diambil']); ?></td>
                             <td><?php echo htmlspecialchars($akademik['sks_nilai_kurang_b']); ?></td>
                             <td>
-                                <?php $statusSia = $akademik['status_sia_mahasiswa'] ?? 'aktif'; ?>
-                                <span class="status-badge <?php echo $statusSia === 'tidak_aktif' ? 'status-nonaktif' : 'status-aktif'; ?>">
-                                    <?php echo $statusSia === 'tidak_aktif' ? 'Tidak Aktif' : 'Aktif'; ?>
+                                <?php $statusSia = $akademik['status_sia_mahasiswa'] ?? $akademik['status_sia'] ?? 'aktif'; ?>
+                                <span class="status-badge <?php echo ($statusSia === 'tidak_aktif' || $statusSia === 'nonaktif') ? 'status-nonaktif' : 'status-aktif'; ?>">
+                                    <?php echo ($statusSia === 'tidak_aktif' || $statusSia === 'nonaktif') ? 'Tidak Aktif' : 'Aktif'; ?>
                                 </span>
                             </td>
                         </tr>

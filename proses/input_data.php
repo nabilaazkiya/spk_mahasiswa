@@ -227,8 +227,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         /* Kolom baru (hasil UAT Kaprodi) - status mahasiswa
            tidak aktif di SIA per periode akademik. Diketik
            bebas di file sumber sebagai "Aktif" / "Tidak Aktif"
-           (case-insensitive), dinormalisasi di bawah. */
-        'status sia'      => 'status_sia_mahasiswa',
+           (case-insensitive), dinormalisasi di bawah.
+
+           PERBAIKAN BUG: sebelumnya key mapping ini 'status sia',
+           padahal header asli pada file export SIA adalah 'Status'
+           saja (dikonfirmasi user). Karena 'status sia' tidak
+           pernah cocok dengan header manapun, kolom ini SELALU
+           dianggap tidak ada di file (kolom opsional) dan semua
+           mahasiswa otomatis tercatat 'aktif', termasuk yang
+           sebenarnya berstatus 'Tidak Aktif' di SIA. */
+        'status'          => 'status_sia_mahasiswa',
     ];
 
     $headerRow = array_shift($rows);
@@ -355,12 +363,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $absensi            = $parseNumerikTerlacak($baris['absensi'], 0, $nim, 'Absensi');
         $sks_nilai_kurang_b = $parseNumerikTerlacak($baris['sks_nilai_kurang_b'], 0, $nim, 'SKS Nilai Kurang B');
 
-        /* Normalisasi status SIA - default 'aktif' kalau kosong
-           atau nilainya tidak dikenali (bukan diam-diam mengubah
-           data valid, hanya jaga-jaga file lama yang belum punya
-           kolom ini sama sekali). */
+        /* Normalisasi status SIA - default 'aktif' kalau kosong.
+           Jika diisi 'cuti', 'nonaktif', 'tidak aktif', dll akan dianggap 'tidak_aktif'. */
         $statusSiaMentah = strtolower(trim((string) ($baris['status_sia_mahasiswa'] ?? '')));
-        $status_sia_mahasiswa = (strpos($statusSiaMentah, 'tidak') !== false) ? 'tidak_aktif' : 'aktif';
+        if ($statusSiaMentah === '' || $statusSiaMentah === 'aktif') {
+            $status_sia_mahasiswa = 'aktif';
+        } else {
+            $status_sia_mahasiswa = 'tidak_aktif';
+        }
 
         /* PERBAIKAN BUG: sebelumnya angkatan diambil dari
            substr($nim, 0, 4) yang menghasilkan teks seperti
@@ -415,6 +425,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         mysqli_stmt_execute($stmtMhs);
         mysqli_stmt_close($stmtMhs);
 
+        /* UPDATE status_sia pada tabel user jika akun mahasiswa sudah ada */
+        $statusSiaUser = ($status_sia_mahasiswa === 'tidak_aktif') ? 'nonaktif' : 'aktif';
+        $stmtUser = mysqli_prepare($conn, "UPDATE user SET status_sia = ? WHERE username = ? AND role = 'mahasiswa'");
+        mysqli_stmt_bind_param($stmtUser, "ss", $statusSiaUser, $nim);
+        mysqli_stmt_execute($stmtUser);
+        mysqli_stmt_close($stmtUser);
+
         /* 2. INSERT (semester baru = simpan sebagai histori baru)
            atau UPDATE (semester yang SAMA diimpor ulang = anggap
            koreksi data, bukan duplikat histori) tabel data_akademik.
@@ -453,12 +470,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     absensi             = ?,
                     sks_diambil         = ?,
                     sks_nilai_kurang_b  = ?,
-                    status_sia_mahasiswa = ?
+                    status_sia_mahasiswa = ?,
+                    status_sia           = ?
                 WHERE nim = ? AND semester = ?
             ");
             mysqli_stmt_bind_param(
                 $stmtUpdate,
-                "ssddddddsdddssd",
+                "ssddddddsdddsssd",
                 $nama_mahasiswa,
                 $dosen_pa,
                 $ip_semester,
@@ -471,6 +489,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $absensi,
                 $sks_diambil,
                 $sks_nilai_kurang_b,
+                $status_sia_mahasiswa,
                 $status_sia_mahasiswa,
                 $nim,
                 $semester
@@ -485,12 +504,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     nim, nama_mahasiswa, dosen_pa, semester, ip_semester, ipk,
                     skor_toefl, jml_mengulang, sks_lulus, sisa_masa_studi,
                     jalur_masuk, absensi, sks_diambil, sks_nilai_kurang_b,
-                    status_sia_mahasiswa
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    status_sia_mahasiswa, status_sia
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             mysqli_stmt_bind_param(
                 $stmtInsert,
-                "sssdddddddsddds",
+                "sssdddddddsdddss",
                 $nim,
                 $nama_mahasiswa,
                 $dosen_pa,
@@ -505,6 +524,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $absensi,
                 $sks_diambil,
                 $sks_nilai_kurang_b,
+                $status_sia_mahasiswa,
                 $status_sia_mahasiswa
             );
             $okAkademik = mysqli_stmt_execute($stmtInsert);

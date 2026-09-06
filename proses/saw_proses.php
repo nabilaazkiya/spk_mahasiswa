@@ -102,23 +102,76 @@ function ambilNilaiSaw($mhs, $kolomData)
         return 0;
     }
 
-    /*
-        Jika jalur_masuk berupa teks,
-        ubah menjadi angka.
-        Sesuaikan mapping ini jika data kamu berbeda.
-    */
+    /* DISAMAKAN DENGAN TOPSIS (topsis_proses.php::ambilNilaiTopsis):
+       Jalur Masuk 5 tingkat sesuai urutan prioritas yang ditetapkan
+       (dari tertinggi ke terendah): Beasiswa Mahasiswa Internasional >
+       SNMPTN/SNBP > SBMPTN/SNBT > Mandiri > Mahasiswa Pindahan.
+       Sebelumnya SAW hanya punya 4 tingkat dan tidak mengenali
+       Beasiswa Internasional sama sekali (jatuh ke skor terendah),
+       sehingga hasil SAW dan TOPSIS bisa berbeda untuk kriteria ini. */
     if ($kolomData == 'jalur_masuk') {
         $nilaiLower = strtolower(trim($nilai));
 
-        if ($nilaiLower == 'snbp' || $nilaiLower == 'snmptn') {
+        if (strpos($nilaiLower, 'beasiswa') !== false && strpos($nilaiLower, 'internasional') !== false) {
+            return 5;
+        } elseif ($nilaiLower == 'snbp' || $nilaiLower == 'snmptn') {
             return 4;
         } elseif ($nilaiLower == 'snbt' || $nilaiLower == 'sbmptn') {
             return 3;
         } elseif ($nilaiLower == 'mandiri') {
             return 2;
+        } elseif (strpos($nilaiLower, 'pindahan') !== false) {
+            return 1;
         } else {
             return 1;
         }
+    }
+
+    /* DISAMAKAN DENGAN TOPSIS: SKS Lulus & SKS Diambil dinormalisasi
+       jadi rasio terhadap SKS ideal (semester berjalan x 20
+       SKS/semester), bukan angka mentah - supaya mahasiswa semester
+       awal tidak otomatis dirugikan dibanding semester akhir. Kalau
+       total SKS Lulus + SKS Diambil sudah mencapai syarat kelulusan
+       (145 SKS), langsung diberi skor maksimal (1). Sebelumnya SAW
+       memakai angka SKS mentah tanpa normalisasi ini. */
+    if ($kolomData == 'sks_lulus' || $kolomData == 'sks_diambil') {
+        $sksLulusVal   = (isset($mhs['sks_lulus']) && is_numeric($mhs['sks_lulus']))
+            ? floatval($mhs['sks_lulus']) : 0;
+        $sksDiambilVal = (isset($mhs['sks_diambil']) && is_numeric($mhs['sks_diambil']))
+            ? floatval($mhs['sks_diambil']) : 0;
+        $totalSksMenujuKelulusan = $sksLulusVal + $sksDiambilVal;
+
+        if ($totalSksMenujuKelulusan >= 145) {
+            return 1;
+        }
+
+        $semester = isset($mhs['semester']) ? floatval($mhs['semester']) : 0;
+        if ($semester <= 0) {
+            return 0;
+        }
+        $sksIdeal = $semester * 20;
+        $sksAktual = is_numeric($nilai) ? floatval($nilai) : 0;
+        return $sksIdeal == 0 ? 0 : ($sksAktual / $sksIdeal);
+    }
+
+    /* DISAMAKAN DENGAN TOPSIS: Skor TOEFL diubah jadi tingkat
+       ordinal, bukan dipakai sebagai angka mentah - sesuai aturan
+       yang ditetapkan: <400 tidak valid (0), 400-449 (1), >=450
+       setara predikat cumlaude (2). Sebelumnya SAW memakai skor
+       TOEFL mentah tanpa kategori ini. */
+    if ($kolomData == 'skor_toefl') {
+        $skor = is_numeric($nilai) ? floatval($nilai) : 0;
+        if ($skor < 400) {
+            return 0;
+        } elseif ($skor < 450) {
+            return 1;
+        } else {
+            return 2;
+        }
+    }
+
+    if (!is_numeric($nilai)) {
+        return 0;
     }
 
     return floatval($nilai);
