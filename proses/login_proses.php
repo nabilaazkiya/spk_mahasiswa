@@ -21,15 +21,8 @@ if ($user && password_verify($password, $user['password'])) {
        Semua operasi ini aman dijalankan berkali-kali.
        ============================================= */
 
-    // 1. Tambah kolom status_sia_mahasiswa jika belum ada
-    $cekKolom = mysqli_query($conn, "SHOW COLUMNS FROM data_akademik LIKE 'status_sia_mahasiswa'");
-    if ($cekKolom && mysqli_num_rows($cekKolom) === 0) {
-        mysqli_query($conn, "
-            ALTER TABLE data_akademik
-            ADD COLUMN status_sia_mahasiswa ENUM('aktif','tidak_aktif') NOT NULL DEFAULT 'aktif'
-            AFTER sks_nilai_kurang_b
-        ");
-    }
+    // 1. status_sia_mahasiswa DIHAPUS - status_sia (aktif/cuti/do/-)
+    //    sekarang satu-satunya sumber kebenaran status mahasiswa.
 
     // 2. Tambah kolom status_sia di tabel user jika belum ada
     $cekKolomUser = mysqli_query($conn, "SHOW COLUMNS FROM user LIKE 'status_sia'");

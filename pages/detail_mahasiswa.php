@@ -677,6 +677,150 @@ if (strtolower($status) == 'kritis') {
 
             <?php endif; ?>
 
+            <!-- ═══════════════════════════════════════
+                 KESIMPULAN CUTI & ANALISIS INDIKASI DO
+                 (fitur baru sesuai permintaan - independen
+                 dari kotak "Kesimpulan Evaluasi Akademik"
+                 di atas, karena tidak bergantung pada
+                 TOPSIS sudah dijalankan atau belum)
+                 ═══════════════════════════════════════ -->
+            <?php
+            /* Ambil seluruh riwayat semester mahasiswa ini,
+               diurutkan naik, supaya bisa: (1) menghitung
+               berapa kali cuti pada semester <= 4, dan
+               (2) mengevaluasi kriteria DO di semester
+               checkpoint yang relevan menggunakan data
+               akademik pada semester tersebut (bukan data
+               semester terbaru), karena checkpoint bisa jadi
+               beberapa semester di belakang semester
+               berjalan mahasiswa saat ini. */
+            $riwayatLengkapQuery = mysqli_query($conn, "
+                SELECT semester, status_sia, ipk, sks_lulus, sks_diambil
+                FROM data_akademik
+                WHERE nim = '$nim'
+                ORDER BY semester ASC
+            ");
+
+            $riwayatPerSemester = [];
+            while ($rr = mysqli_fetch_assoc($riwayatLengkapQuery)) {
+                $riwayatPerSemester[(int) $rr['semester']] = $rr;
+            }
+
+            $semesterTerbaruMhs = !empty($riwayatPerSemester) ? max(array_keys($riwayatPerSemester)) : 0;
+
+            /* Jumlah semester cuti/tidak aktif yang terjadi PADA semester <= 4 */
+            $jumlahCutiHingga4 = 0;
+            foreach ($riwayatPerSemester as $smt => $rr) {
+                if ($smt <= 4 && strtolower(trim((string) $rr['status_sia'])) === 'tidak_aktif') {
+                    $jumlahCutiHingga4++;
+                }
+            }
+
+            /* Checkpoint pertama bergeser sebanyak jumlah cuti:
+               0 cuti -> semester 4, 1 cuti -> semester 5,
+               2 cuti -> semester 6, dst (4 + jumlah cuti). */
+            $checkpointPertama = 4 + $jumlahCutiHingga4;
+
+            $kesimpulanCuti = '';
+            $indikasiDoPertama = null; // null = belum bisa dievaluasi (belum sampai checkpoint)
+
+            if ($jumlahCutiHingga4 === 0) {
+                $kesimpulanCuti = 'Tidak terdapat data cuti pada semester hingga semester 4 yang memengaruhi periode analisis DO.';
+            } else {
+                $kesimpulanCuti = sprintf(
+                    'Mahasiswa memiliki %d semester cuti pada masa studi hingga semester 4. Semester cuti tidak diperhitungkan dalam proses TOPSIS, namun tetap diperhitungkan dalam masa studi. Oleh karena itu, analisis indikasi DO ditinjau pada semester %d.',
+                    $jumlahCutiHingga4,
+                    $checkpointPertama
+                );
+            }
+
+            /* Evaluasi kriteria DO baseline PADA data semester checkpoint
+               (kalau datanya sudah ada / semester itu sudah dilewati):
+                 - IPK < 2.00, ATAU
+                 - cuti >= 2 kali (pada semester <= 4), ATAU
+                 - SKS Lulus kumulatif < 40 pada checkpoint tsb.
+
+               CATATAN ASUMSI (mohon dikoreksi kalau keliru): "jumlah SKS
+               yang diambil tidak sampai 40" diartikan sebagai SKS LULUS
+               KUMULATIF (kolom sks_lulus / "SKS Kumulatif" di file
+               excel) pada semester checkpoint - karena SKS per-semester
+               saja (~20) hampir selalu di bawah 40 sehingga tidak
+               relevan sebagai indikator risiko. */
+            $alasanDoPertama = [];
+            if ($semesterTerbaruMhs >= $checkpointPertama && isset($riwayatPerSemester[$checkpointPertama])) {
+                $dataCheckpoint = $riwayatPerSemester[$checkpointPertama];
+
+                if (is_numeric($dataCheckpoint['ipk']) && floatval($dataCheckpoint['ipk']) < 2.00) {
+                    $alasanDoPertama[] = 'IPK di semester ' . $checkpointPertama . ' kurang dari 2,00 (' . number_format($dataCheckpoint['ipk'], 2) . ')';
+                }
+                if ($jumlahCutiHingga4 >= 2) {
+                    $alasanDoPertama[] = 'terdapat ' . $jumlahCutiHingga4 . ' kali cuti pada semester <= 4';
+                }
+                if (is_numeric($dataCheckpoint['sks_lulus']) && floatval($dataCheckpoint['sks_lulus']) < 40) {
+                    $alasanDoPertama[] = 'jumlah SKS lulus kumulatif di semester ' . $checkpointPertama . ' belum mencapai 40 (' . floatval($dataCheckpoint['sks_lulus']) . ')';
+                }
+
+                $indikasiDoPertama = !empty($alasanDoPertama);
+            }
+
+            /* Checkpoint kedua: sekitar batas akhir masa studi
+               (semester 14). Karena instruksi tidak merinci kriteria
+               spesifik untuk checkpoint ini, ASUMSI yang dipakai:
+               risiko DO tinggi jika mahasiswa sudah mencapai/lewat
+               semester 14 namun Sisa Masa Studi (data terbaru) sudah
+               habis (<= 0) - artinya batas maksimal masa studi
+               terlampaui. Mohon dikonfirmasi/disesuaikan jika
+               kriteria yang dimaksud berbeda. */
+            $indikasiDoKedua = null;
+            if ($semesterTerbaruMhs >= 14) {
+                $sisaMasaStudiTerbaru = isset($data['sisa_masa_studi']) ? floatval($data['sisa_masa_studi']) : null;
+                $indikasiDoKedua = ($sisaMasaStudiTerbaru !== null && $sisaMasaStudiTerbaru <= 0);
+            }
+            ?>
+
+            <div style="
+                background: <?php echo $jumlahCutiHingga4 > 0 ? '#fff8e1' : '#f8f9fa'; ?>;
+                border-left: 4px solid <?php echo $jumlahCutiHingga4 > 0 ? '#f39c12' : '#ccc'; ?>;
+                border-radius: 8px;
+                padding: 18px 20px;
+                margin-top: 20px;
+                font-family: Arial, sans-serif;
+                font-size: 13px;
+                color: #444;
+            ">
+                <h4 style="margin:0 0 12px 0;font-size:15px;color:#333;">
+                    📌 Kesimpulan Cuti &amp; Analisis Indikasi DO
+                </h4>
+
+                <p style="margin:0 0 10px 0;"><?php echo htmlspecialchars($kesimpulanCuti); ?></p>
+
+                <?php if ($indikasiDoPertama === null): ?>
+                    <p style="margin:0;color:#6c757d;">
+                        Analisis indikasi DO untuk checkpoint semester <?php echo $checkpointPertama; ?> belum dapat ditampilkan
+                        karena mahasiswa belum mencapai/data semester tersebut belum diupload.
+                    </p>
+                <?php elseif ($indikasiDoPertama): ?>
+                    <p style="margin:0;color:#c0392b;font-weight:bold;">
+                        ⚠️ Indikasi DO pada checkpoint semester <?php echo $checkpointPertama; ?>: TERDETEKSI RISIKO.
+                    </p>
+                    <ul style="margin:6px 0 0 18px;padding:0;">
+                        <?php foreach ($alasanDoPertama as $alasan): ?>
+                            <li><?php echo htmlspecialchars($alasan); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php else: ?>
+                    <p style="margin:0;color:#27ae60;font-weight:bold;">
+                        ✅ Indikasi DO pada checkpoint semester <?php echo $checkpointPertama; ?>: tidak terdeteksi risiko dari kriteria IPK, cuti, maupun SKS.
+                    </p>
+                <?php endif; ?>
+
+                <?php if ($indikasiDoKedua !== null): ?>
+                    <p style="margin:10px 0 0 0;<?php echo $indikasiDoKedua ? 'color:#c0392b;font-weight:bold;' : 'color:#27ae60;font-weight:bold;'; ?>">
+                        <?php echo $indikasiDoKedua ? '⚠️' : '✅'; ?> Checkpoint semester 14: <?php echo $indikasiDoKedua ? 'mahasiswa sudah melewati batas masa studi (Sisa Masa Studi habis) - risiko DO tinggi.' : 'mahasiswa masih dalam batas masa studi yang wajar.'; ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+
             <br>
 
             <a href="<?php echo $backPage; ?>" class="btn-add" style="text-decoration:none;">

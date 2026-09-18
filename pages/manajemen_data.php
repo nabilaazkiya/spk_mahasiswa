@@ -7,29 +7,14 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-/* =============================================
-   AUTO-FIX: PASTIKAN KOLOM status_sia_mahasiswa ADA
-   Kolom ini ditambahkan ke program secara bertahap.
-   Database lama (hasil import dari sebelum kolom ini ada)
-   tidak punya kolom ini, sehingga Status SIA selalu tampil
-   'Aktif' semua. Cek + tambah otomatis di sini agar
-   tidak perlu langkah manual di laptop orang lain.
-   ============================================= */
-$cekKolomStatusSia = mysqli_query($conn, "SHOW COLUMNS FROM data_akademik LIKE 'status_sia_mahasiswa'");
-if ($cekKolomStatusSia && mysqli_num_rows($cekKolomStatusSia) === 0) {
-    mysqli_query($conn, "
-        ALTER TABLE data_akademik
-        ADD COLUMN status_sia_mahasiswa ENUM('aktif','tidak_aktif') NOT NULL DEFAULT 'aktif'
-        AFTER sks_nilai_kurang_b
-    ");
-}
+/* status_sia_mahasiswa DIHAPUS (permintaan user) - status_sia
+   (aktif/cuti/do/-) sekarang satu-satunya sumber kebenaran status
+   mahasiswa, dipakai langsung di badge tabel di bawah. */
 
 /* =============================================
    AUTO-FIX: REFRESH VIEW data_akademik_terbaru
-   Setelah kolom baru ditambahkan (atau mungkin VIEW
-   dibuat sebelum kolom ini ada), VIEW perlu dibuat
-   ulang dengan CREATE OR REPLACE agar kolom
-   status_sia_mahasiswa ikut masuk ke VIEW.
+   Dibuat ulang dengan CREATE OR REPLACE supaya kolom
+   terbaru di data_akademik selalu ikut masuk ke VIEW.
    Aman dijalankan berkali-kali (tidak merusak data).
    ============================================= */
 mysqli_query($conn, "
@@ -77,6 +62,24 @@ if ($role != '') {
 $userQuery = mysqli_query($conn, "SELECT * FROM user $whereUser ORDER BY id_user DESC");
 
 $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik_terbaru $whereAkademik ORDER BY id_data DESC");
+
+/* FITUR BARU (tanpa tabel baru): daftar batch upload, dikelompokkan
+   dari kesamaan tanggal_upload persis di riwayat_akademik (satu
+   waktu yang sama dipakai untuk semua baris dalam satu kali proses
+   import - lihat $waktuImpor di proses/input_data.php), untuk modal
+   Lihat/Hapus Data Upload. */
+$daftarBatchUpload = [];
+$batchQuery = mysqli_query($conn, "
+    SELECT ra.tanggal_upload, COUNT(*) AS jumlah_data
+    FROM riwayat_akademik ra
+    GROUP BY ra.tanggal_upload
+    ORDER BY ra.tanggal_upload DESC
+");
+if ($batchQuery) {
+    while ($b = mysqli_fetch_assoc($batchQuery)) {
+        $daftarBatchUpload[] = $b;
+    }
+}
 
 /* DIAGNOSTIK: nama Dosen PA di data akademik yang belum
    punya akun DPA sama sekali - supaya kalau sinkronisasi
@@ -179,7 +182,15 @@ if ($cekDosen) {
                         <a href="../assets/templates/Template_Format_Data.xlsx" download="Template_Format_Data.xlsx">
                             &#128229; Download Template Data Excel
                         </a>
+                        <a href="#" onclick="document.getElementById('modalDokumen').style.display='flex'; document.getElementById('dropdownImport').classList.remove('open'); return false;">
+                            &#128193; Lihat / Hapus Data Upload
+                        </a>
+                        <a href="#" onclick="if(confirm('Hitung ulang TOPSIS, SAW, dan Spearman sekarang dari data akademik terkini?')){ document.getElementById('formHitungUlang').submit(); } document.getElementById('dropdownImport').classList.remove('open'); return false;">
+                            &#128260; Hitung Ulang TOPSIS &amp; SAW
+                        </a>
                     </div>
+
+                    <form id="formHitungUlang" method="POST" action="../proses/hitung_ulang.php"></form>
 
                     <form id="formImport" method="POST" action="../proses/input_data.php" enctype="multipart/form-data">
                         <input 
@@ -298,9 +309,20 @@ if ($cekDosen) {
                             <td><?php echo htmlspecialchars($akademik['sks_diambil']); ?></td>
                             <td><?php echo htmlspecialchars($akademik['sks_nilai_kurang_b']); ?></td>
                             <td>
-                                <?php $statusSia = $akademik['status_sia_mahasiswa'] ?? $akademik['status_sia'] ?? 'aktif'; ?>
-                                <span class="status-badge <?php echo ($statusSia === 'tidak_aktif' || $statusSia === 'nonaktif') ? 'status-nonaktif' : 'status-aktif'; ?>">
-                                    <?php echo ($statusSia === 'tidak_aktif' || $statusSia === 'nonaktif') ? 'Tidak Aktif' : 'Aktif'; ?>
+                                <?php
+                                $statusSia = strtolower(trim((string) ($akademik['status_sia'] ?? 'aktif')));
+                                $labelStatus = 'Aktif';
+                                $kelasStatus = 'status-aktif';
+                                if ($statusSia === 'do') {
+                                    $labelStatus = 'DO';
+                                    $kelasStatus = 'status-nonaktif';
+                                } elseif ($statusSia !== 'aktif' && $statusSia !== '') {
+                                    $labelStatus = 'Tidak Aktif';
+                                    $kelasStatus = 'status-nonaktif';
+                                }
+                                ?>
+                                <span class="status-badge <?php echo $kelasStatus; ?>">
+                                    <?php echo $labelStatus; ?>
                                 </span>
                             </td>
                         </tr>
@@ -314,6 +336,49 @@ if ($cekDosen) {
     </main>
 </div>
 
+<!-- ═══════════════════════════════════════
+     MODAL: LIHAT / HAPUS DOKUMEN TERUPLOAD
+     ═══════════════════════════════════════ -->
+<div id="modalDokumen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:10px;padding:24px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;font-family:Arial,sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:18px;color:#333;">Data Upload Tersimpan</h3>
+            <button type="button" onclick="document.getElementById('modalDokumen').style.display='none';" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1;">&times;</button>
+        </div>
+
+        <?php if (empty($daftarBatchUpload)): ?>
+            <p style="color:#888;">Belum ada data yang diupload.</p>
+        <?php else: ?>
+            <p style="color:#888;font-size:12px;margin-top:0;">Dikelompokkan berdasarkan waktu upload (semua data dari satu kali proses import yang sama).</p>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="text-align:left;border-bottom:2px solid #eee;">
+                        <th style="padding:8px 6px;">Waktu Upload</th>
+                        <th style="padding:8px 6px;">Jumlah Data</th>
+                        <th style="padding:8px 6px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($daftarBatchUpload as $batch): ?>
+                        <tr style="border-bottom:1px solid #f0f0f0;">
+                            <td style="padding:8px 6px;white-space:nowrap;"><?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?></td>
+                            <td style="padding:8px 6px;"><?php echo (int) $batch['jumlah_data']; ?> baris</td>
+                            <td style="padding:8px 6px;">
+                                <form method="POST" action="../proses/hapus_batch_upload.php" onsubmit="return confirm('Hapus data upload tanggal <?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?>?\n\nSeluruh data akademik mahasiswa (<?php echo (int) $batch['jumlah_data']; ?> baris) dari batch ini akan IKUT TERHAPUS dari database. Tindakan ini tidak bisa dibatalkan.');">
+                                    <input type="hidden" name="waktu_upload" value="<?php echo htmlspecialchars($batch['tanggal_upload']); ?>">
+                                    <button type="submit" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:6px 12px;cursor:pointer;font-size:12px;">
+                                        Hapus
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+</div>
+
 <script>
 document.getElementById('fileImport').addEventListener('change', function() {
     if (this.files.length > 0) {
@@ -325,6 +390,12 @@ document.addEventListener('click', function(e) {
     var dropdown = document.getElementById('dropdownImport');
     if (dropdown && !dropdown.contains(e.target)) {
         dropdown.classList.remove('open');
+    }
+});
+
+document.getElementById('modalDokumen').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.style.display = 'none';
     }
 });
 </script>

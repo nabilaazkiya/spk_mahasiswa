@@ -15,21 +15,34 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 
 require '../includes/xlsx_reader.php';
 
+/* status_sia_mahasiswa DIHAPUS (permintaan user): sekarang
+   status_sia adalah satu-satunya sumber kebenaran untuk status
+   mahasiswa (aktif/cuti/do/-), termasuk untuk keperluan yang dulu
+   dipegang status_sia_mahasiswa (aktif/tidak_aktif). Tidak ada lagi
+   auto-migration untuk kolom ini di sini. */
+
 /* =============================================
-   PASTIKAN KOLOM status_sia_mahasiswa SUDAH ADA
-   (digabung dari proses/tambah_kolom_status_sia.php
-   sebelumnya - sekarang otomatis dicek & ditambahkan
-   di sini tiap kali import dijalankan, jadi tidak perlu
-   file/script terpisah lagi. Aman dijalankan berkali-kali:
-   hanya ALTER TABLE kalau kolomnya memang belum ada.) */
-$cekKolomStatusSia = mysqli_query($conn, "SHOW COLUMNS FROM data_akademik LIKE 'status_sia_mahasiswa'");
-if ($cekKolomStatusSia && mysqli_num_rows($cekKolomStatusSia) === 0) {
-    mysqli_query($conn, "
-        ALTER TABLE data_akademik
-        ADD COLUMN status_sia_mahasiswa ENUM('aktif','tidak_aktif') NOT NULL DEFAULT 'aktif'
-        AFTER sks_nilai_kurang_b
-    ");
+   PASTIKAN KOLOM sks_diambil BOLEH NULL
+   (dibutuhkan untuk mendukung semester "Cuti" -
+   lihat penjelasan di bagian parsing SKS di bawah.
+   Sebelumnya kolom ini int(3) NOT NULL, sehingga
+   semester cuti terpaksa disimpan sebagai SKS = 0,
+   padahal 0 dan "tidak ada data karena cuti" adalah
+   dua hal yang berbeda dan harus diperlakukan beda
+   saat perhitungan TOPSIS/SAW. Aman dijalankan
+   berkali-kali: hanya MODIFY kalau kolom saat ini
+   masih NOT NULL.) */
+$cekKolomSks = mysqli_query($conn, "SHOW COLUMNS FROM data_akademik LIKE 'sks_diambil'");
+$rowKolomSks = $cekKolomSks ? mysqli_fetch_assoc($cekKolomSks) : null;
+if ($rowKolomSks && strtoupper($rowKolomSks['Null']) === 'NO') {
+    mysqli_query($conn, "ALTER TABLE data_akademik MODIFY sks_diambil INT(3) NULL DEFAULT NULL");
 }
+
+/* Fitur "daftar & hapus dokumen terupload" SEKARANG memakai
+   waktu upload (tanggal_upload di riwayat_akademik, yang sudah
+   ada) sebagai pengelompok batch - TIDAK ada tabel baru. Lihat
+   $waktuImpor di bawah dan pages/manajemen_data.php +
+   proses/hapus_batch_upload.php. */
 
 /* =============================================
    FUNGSI BANTUAN
@@ -137,6 +150,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit;
     }
 
+    /* FITUR BARU (tanpa tabel baru): satu waktu upload yang SAMA
+       dipakai untuk SEMUA baris riwayat_akademik dalam satu kali
+       proses import ini - dipakai sebagai "batch id" alami supaya
+       admin bisa melihat & menghapus data akademik per batch upload
+       (lihat pages/manajemen_data.php & proses/hapus_batch_upload.php),
+       tanpa perlu tabel/kolom tambahan. */
+    $waktuImpor = date('Y-m-d H:i:s');
+
     /* =============================================
        BACA FILE MENJADI ARRAY BARIS
        (baik CSV maupun XLSX diproses menjadi
@@ -236,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
            dianggap tidak ada di file (kolom opsional) dan semua
            mahasiswa otomatis tercatat 'aktif', termasuk yang
            sebenarnya berstatus 'Tidak Aktif' di SIA. */
-        'status'          => 'status_sia_mahasiswa',
+        'status'          => 'status_mentah',
     ];
 
     $headerRow = array_shift($rows);
@@ -264,12 +285,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $kolomHilang = [];
 
     foreach ($mappingHeader as $headerCsv => $fieldDb) {
-        /* Kolom status_sia_mahasiswa dibuat OPSIONAL - supaya
-           file Excel versi lama (sebelum kolom ini ada) tetap
+        /* Kolom status_mentah (Status SIA mentah) dibuat OPSIONAL -
+           supaya file Excel versi lama (sebelum kolom ini ada) tetap
            bisa diimport, tidak langsung ditolak. Kalau kolom
            ini tidak ada di file, semua mahasiswa dianggap
            'aktif' secara default (lihat normalisasi di bawah). */
-        if ($fieldDb === 'status_sia_mahasiswa') {
+        if ($fieldDb === 'status_mentah') {
             continue;
         }
         if (!array_key_exists($headerCsv, $indexKolom)) {
@@ -332,7 +353,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         foreach ($mappingHeader as $headerCsv => $fieldDb) {
             if (!array_key_exists($headerCsv, $indexKolom)) {
-                /* Kolom opsional (status_sia_mahasiswa) tidak ada
+                /* Kolom opsional (status_mentah) tidak ada
                    di file ini - biarkan null, dinormalisasi jadi
                    'aktif' di bawah. */
                 $baris[$fieldDb] = null;
@@ -351,8 +372,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $nama_mahasiswa     = amankanTeks($baris['nama_mahasiswa']);
         $dosen_pa           = amankanTeks($baris['dosen_pa']);
-        $semester           = $parseNumerikTerlacak($baris['semester'], 0, $nim, 'Semester');
-        $sks_diambil        = $parseNumerikTerlacak($baris['sks_diambil'], 0, $nim, 'SKS Diambil');
+
+        /* PERBAIKAN (permintaan: hilangkan Semester sebagai kriteria
+           TOPSIS/SAW): kolom "Semester" dari file Excel TETAP dibaca
+           supaya validasi header tidak berubah, tapi NILAINYA TIDAK
+           DIPAKAI lagi. Semester sekarang selalu dihitung otomatis
+           dari Sisa Masa Studi dengan rumus yang ditetapkan:
+
+               Semester = 14 - Sisa Masa Studi
+
+           Nilai ini tetap disimpan di kolom `semester` (dipakai untuk
+           tampilan, grafik tren, dan bantuan rasio SKS ideal di
+           ambilNilaiTopsis/ambilNilaiSaw) - hanya SUMBER datanya yang
+           berubah, bukan strukturnya, dan kolom ini TIDAK lagi
+           didaftarkan sebagai kriteria TOPSIS/SAW (lihat perubahan di
+           assets/data_delphi.csv). */
+        $semesterMentahDariFile = $parseNumerikTerlacak($baris['semester'], 0, $nim, 'Semester');
+        // sengaja tidak dipakai - lihat penjelasan di atas
+        unset($semesterMentahDariFile);
+
+        /* PERBAIKAN (permintaan user): status_sia_mahasiswa DIHAPUS,
+           dan nilai untuk semester cuti/tidak aktif DISEDERHANAKAN
+           jadi 'tidak_aktif' (bukan 'cuti' lagi). status_sia dibaca
+           langsung dari kolom "Status" pada file Excel:
+             - mengandung "do"                 -> status_sia = 'do'
+             - kosong atau "aktif"              -> status_sia = 'aktif'
+             - selain itu (cuti, tidak aktif,
+               nonaktif, dll)                   -> status_sia = 'tidak_aktif'
+           SKS tetap diproses sebagai angka biasa (0 kalau kosong) -
+           TIDAK lagi dipaksa NULL untuk semester tidak aktif, karena
+           pengecualian dari TOPSIS/SAW sekarang murni berdasarkan
+           status_sia (lihat topsis_proses.php/saw_proses.php), bukan
+           dari nilai SKS-nya. */
+        $statusMentah = strtolower(trim((string) ($baris['status_mentah'] ?? '')));
+
+        if ($statusMentah === '' || $statusMentah === 'aktif') {
+            $status_sia = 'aktif';
+        } elseif ($statusMentah === 'do' || strpos($statusMentah, 'drop out') !== false) {
+            $status_sia = 'do';
+        } else {
+            $status_sia = 'tidak_aktif';
+        }
+
+        $sks_diambil = $parseNumerikTerlacak($baris['sks_diambil'], 0, $nim, 'SKS Diambil');
+
         $ip_semester        = parseNumerik($baris['ip_semester'], null); // nullable, tidak perlu dilacak
         $ipk                = $parseNumerikTerlacak($baris['ipk'], 0, $nim, 'IPK');
         $sks_lulus          = $parseNumerikTerlacak($baris['sks_lulus'], 0, $nim, 'SKS Lulus');
@@ -363,13 +426,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $absensi            = $parseNumerikTerlacak($baris['absensi'], 0, $nim, 'Absensi');
         $sks_nilai_kurang_b = $parseNumerikTerlacak($baris['sks_nilai_kurang_b'], 0, $nim, 'SKS Nilai Kurang B');
 
-        /* Normalisasi status SIA - default 'aktif' kalau kosong.
-           Jika diisi 'cuti', 'nonaktif', 'tidak aktif', dll akan dianggap 'tidak_aktif'. */
-        $statusSiaMentah = strtolower(trim((string) ($baris['status_sia_mahasiswa'] ?? '')));
-        if ($statusSiaMentah === '' || $statusSiaMentah === 'aktif') {
-            $status_sia_mahasiswa = 'aktif';
-        } else {
-            $status_sia_mahasiswa = 'tidak_aktif';
+        /* Rumus wajib: Semester = 14 - Sisa Masa Studi.
+           Divalidasi supaya tidak menghasilkan semester tidak valid
+           (0 atau negatif) akibat data Sisa Masa Studi yang aneh -
+           kalau itu terjadi, baris ditandai gagal (bukan dipaksakan
+           nilai yang salah ke database), sama seperti penanganan
+           format NIM/angkatan yang tidak valid di bawah. */
+        $semester = 14 - $sisa_masa_studi;
+        if ($semester < 1) {
+            $gagal++;
+            continue;
         }
 
         /* PERBAIKAN BUG: sebelumnya angkatan diambil dari
@@ -425,8 +491,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         mysqli_stmt_execute($stmtMhs);
         mysqli_stmt_close($stmtMhs);
 
-        /* UPDATE status_sia pada tabel user jika akun mahasiswa sudah ada */
-        $statusSiaUser = ($status_sia_mahasiswa === 'tidak_aktif') ? 'nonaktif' : 'aktif';
+        /* UPDATE status_sia pada tabel user jika akun mahasiswa sudah ada.
+           CATATAN: ini kolom status_sia di tabel `user` (ENUM aktif/nonaktif,
+           konsep beda dari status_sia di data_akademik yang punya 4 nilai
+           aktif/cuti/do/-). Selain 'aktif' (cuti/do/-) dianggap 'nonaktif'. */
+        $statusSiaUser = ($status_sia === 'aktif') ? 'aktif' : 'nonaktif';
         $stmtUser = mysqli_prepare($conn, "UPDATE user SET status_sia = ? WHERE username = ? AND role = 'mahasiswa'");
         mysqli_stmt_bind_param($stmtUser, "ss", $statusSiaUser, $nim);
         mysqli_stmt_execute($stmtUser);
@@ -470,13 +539,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     absensi             = ?,
                     sks_diambil         = ?,
                     sks_nilai_kurang_b  = ?,
-                    status_sia_mahasiswa = ?,
-                    status_sia           = ?
+                    status_sia          = ?
                 WHERE nim = ? AND semester = ?
             ");
             mysqli_stmt_bind_param(
                 $stmtUpdate,
-                "ssddddddsdddsssd",
+                "ssddddddsdddssd",
                 $nama_mahasiswa,
                 $dosen_pa,
                 $ip_semester,
@@ -489,8 +557,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $absensi,
                 $sks_diambil,
                 $sks_nilai_kurang_b,
-                $status_sia_mahasiswa,
-                $status_sia_mahasiswa,
+                $status_sia,
                 $nim,
                 $semester
             );
@@ -504,12 +571,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     nim, nama_mahasiswa, dosen_pa, semester, ip_semester, ipk,
                     skor_toefl, jml_mengulang, sks_lulus, sisa_masa_studi,
                     jalur_masuk, absensi, sks_diambil, sks_nilai_kurang_b,
-                    status_sia_mahasiswa, status_sia
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    status_sia
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             mysqli_stmt_bind_param(
                 $stmtInsert,
-                "sssdddddddsdddss",
+                "sssdddddddsddds",
                 $nim,
                 $nama_mahasiswa,
                 $dosen_pa,
@@ -524,8 +591,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $absensi,
                 $sks_diambil,
                 $sks_nilai_kurang_b,
-                $status_sia_mahasiswa,
-                $status_sia_mahasiswa
+                $status_sia
             );
             $okAkademik = mysqli_stmt_execute($stmtInsert);
 
@@ -536,13 +602,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         mysqli_stmt_close($stmtCek);
 
-        /* 3. Simpan histori ke riwayat_akademik (junction table) */
+        /* 3. Simpan histori ke riwayat_akademik (junction table).
+           PERBAIKAN: pakai $waktuImpor (satu waktu yang sama untuk
+           seluruh baris dalam import ini) alih-alih NOW() per baris,
+           supaya seluruh data dari satu file upload bisa dikenali
+           sebagai satu "batch" yang sama persis waktunya - dipakai
+           untuk fitur hapus per-batch di manajemen_data.php, tanpa
+           perlu tabel/kolom tambahan. */
         if ($okAkademik && $idData) {
             $stmtRiwayat = mysqli_prepare($conn, "
                 INSERT INTO riwayat_akademik (nim, id_data, tanggal_upload)
-                VALUES (?, ?, NOW())
+                VALUES (?, ?, ?)
             ");
-            mysqli_stmt_bind_param($stmtRiwayat, "si", $nim, $idData);
+            mysqli_stmt_bind_param($stmtRiwayat, "sis", $nim, $idData, $waktuImpor);
             mysqli_stmt_execute($stmtRiwayat);
             mysqli_stmt_close($stmtRiwayat);
         }

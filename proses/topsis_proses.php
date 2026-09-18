@@ -12,6 +12,33 @@ if (!isset($_SESSION['role'])) {
 mysqli_query($conn, "DELETE FROM solusi_ideal");
 
 /* =============================================
+   PEMBERSIHAN OTOMATIS PERIODE "HANTU"
+   Kalau data mahasiswa dikoreksi (reimport, edit
+   manual, atau rumus semester berubah), baris lama
+   di ranking_topsis/hasil_evaluasi yang periode-nya
+   sudah tidak sesuai lagi dengan histori semester
+   mahasiswa yang sebenarnya (data_akademik) akan
+   dihapus otomatis di sini setiap kali TOPSIS
+   dijalankan - supaya grafik tren tidak lagi
+   menampilkan periode yang sebenarnya tidak pernah
+   ada di data upload. Tidak menyentuh data_akademik
+   sama sekali, hanya tabel HASIL (cache) perhitungan. */
+mysqli_query($conn, "
+    DELETE rt FROM ranking_topsis rt
+    LEFT JOIN data_akademik da
+        ON da.nim = rt.nim
+        AND CONCAT('Semester ', LPAD(da.semester, 2, '0')) = rt.periode_evaluasi
+    WHERE da.id_data IS NULL
+");
+mysqli_query($conn, "
+    DELETE he FROM hasil_evaluasi he
+    LEFT JOIN data_akademik da
+        ON da.nim = he.nim
+        AND CONCAT('Semester ', LPAD(da.semester, 2, '0')) = he.periode_evaluasi
+    WHERE da.id_data IS NULL
+");
+
+/* =============================================
    2. AMBIL DATA AKADEMIK TERBARU PER MAHASISWA
    ============================================= */
 $dataMahasiswa = [];
@@ -26,6 +53,7 @@ $qMahasiswa = mysqli_query($conn, "
     ) terbaru
     ON da.nim = terbaru.nim
     AND da.id_data = terbaru.id_data_terbaru
+    WHERE da.status_sia IS NULL OR LOWER(da.status_sia) = 'aktif'
 ");
 
 while ($row = mysqli_fetch_assoc($qMahasiswa)) {

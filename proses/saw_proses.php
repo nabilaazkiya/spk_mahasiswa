@@ -27,6 +27,7 @@ $qMahasiswa = mysqli_query($conn, "
     ) terbaru
     ON da.nim = terbaru.nim
     AND da.id_data = terbaru.id_data_terbaru
+    WHERE da.status_sia IS NULL OR LOWER(da.status_sia) = 'aktif'
 ");
 
 while ($row = mysqli_fetch_assoc($qMahasiswa)) {
