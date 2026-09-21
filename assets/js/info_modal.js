@@ -62,7 +62,8 @@ const INFO_TEXTS = {
     preferensi_model: {
         judul: "Preferensi Model",
         isi: `
-            Nilai korelasi (rs) antara ranking TOPSIS dan ranking SAW,
+            Nilai korelasi (rs) antara ranking TOPSIS dan ranking SAW
+            SELURUH mahasiswa (bukan skor mahasiswa ini sendiri),
             hasil Uji Spearman. Makin mendekati 1, makin konsisten
             kedua metode ini - makin bisa dipercaya hasil rankingnya.
         `

@@ -1,4 +1,5 @@
 <?php
+// Hitung ranking & kategori early warning mahasiswa dengan metode TOPSIS.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -10,19 +11,7 @@ if (!isset($_SESSION['role'])) {
 }
 
 mysqli_query($conn, "DELETE FROM solusi_ideal");
-
-/* =============================================
-   PEMBERSIHAN OTOMATIS PERIODE "HANTU"
-   Kalau data mahasiswa dikoreksi (reimport, edit
-   manual, atau rumus semester berubah), baris lama
-   di ranking_topsis/hasil_evaluasi yang periode-nya
-   sudah tidak sesuai lagi dengan histori semester
-   mahasiswa yang sebenarnya (data_akademik) akan
-   dihapus otomatis di sini setiap kali TOPSIS
-   dijalankan - supaya grafik tren tidak lagi
-   menampilkan periode yang sebenarnya tidak pernah
-   ada di data upload. Tidak menyentuh data_akademik
-   sama sekali, hanya tabel HASIL (cache) perhitungan. */
+   
 mysqli_query($conn, "
     DELETE rt FROM ranking_topsis rt
     LEFT JOIN data_akademik da
@@ -47,12 +36,20 @@ $qMahasiswa = mysqli_query($conn, "
     SELECT da.*
     FROM data_akademik da
     INNER JOIN (
-        SELECT nim, MAX(id_data) AS id_data_terbaru
+        SELECT nim, MAX(semester) AS semester_terbaru
         FROM data_akademik
         GROUP BY nim
-    ) terbaru
-    ON da.nim = terbaru.nim
-    AND da.id_data = terbaru.id_data_terbaru
+    ) semTerbaru
+    ON da.nim = semTerbaru.nim
+    AND da.semester = semTerbaru.semester_terbaru
+    INNER JOIN (
+        SELECT nim, semester, MAX(id_data) AS id_data_terbaru
+        FROM data_akademik
+        GROUP BY nim, semester
+    ) idTerbaru
+    ON da.nim = idTerbaru.nim
+    AND da.semester = idTerbaru.semester
+    AND da.id_data = idTerbaru.id_data_terbaru
     WHERE da.status_sia IS NULL OR LOWER(da.status_sia) = 'aktif'
 ");
 
@@ -135,7 +132,7 @@ function ambilNilaiTopsis($mhs, $kolomData)
         return 0;
     }
 
-    /* PERBAIKAN: Jalur Masuk sekarang 5 tingkat sesuai urutan
+    /* Jalur Masuk 5 tingkat sesuai urutan
        prioritas yang ditetapkan (dari tertinggi ke terendah):
        Beasiswa Mahasiswa Internasional > SNMPTN/SNBP >
        SBMPTN/SNBT > Mandiri > Mahasiswa Pindahan. SNBP/SNBT
@@ -163,26 +160,6 @@ function ambilNilaiTopsis($mhs, $kolomData)
         }
     }
 
-    /* PERBAIKAN: SKS Lulus & SKS Diambil dibandingkan secara
-       MENTAH akan selalu merugikan mahasiswa semester awal
-       (SKS mereka wajar jauh lebih sedikit dari mahasiswa
-       semester akhir). Sekarang dinormalisasi jadi RASIO
-       terhadap SKS ideal (semester berjalan x 20 SKS/semester),
-       supaya yang dibandingkan adalah seberapa sesuai progres
-       SKS mahasiswa dengan kecepatan idealnya sendiri - bukan
-       jumlah SKS absolut. Patokan 20 SKS/semester dipakai apa
-       adanya sesuai semester mahasiswa (tidak dibatasi di
-       semester 7 untuk mahasiswa yang sudah lebih dari itu).
-
-       PERBAIKAN LANJUTAN: syarat kelulusan program studi adalah
-       minimal 145 SKS. Kalau SKS Lulus + SKS Diambil (semester
-       berjalan) SUDAH mencapai/melewati 145, mahasiswa itu sudah
-       aman secara total beban studi - SKS Diambil semester ini
-       yang sedikit BUKAN masalah (wajar, karena sisa mata kuliah
-       yang perlu diambil memang tinggal sedikit). Maka untuk
-       kolom sks_lulus maupun sks_diambil, kondisi ini langsung
-       diberi skor maksimal (1), tanpa dihitung rasio per semester
-       seperti mahasiswa lain yang belum mencapai 145 SKS. */
     if ($kolomData == 'sks_lulus' || $kolomData == 'sks_diambil') {
         $sksLulusVal   = (isset($mhs['sks_lulus']) && is_numeric($mhs['sks_lulus']))
             ? floatval($mhs['sks_lulus']) : 0;
@@ -203,10 +180,6 @@ function ambilNilaiTopsis($mhs, $kolomData)
         return $sksIdeal == 0 ? 0 : ($sksAktual / $sksIdeal);
     }
 
-    /* PERBAIKAN: Skor TOEFL diubah jadi tingkat ordinal, bukan
-       dipakai sebagai angka mentah - sesuai aturan yang
-       ditetapkan: <400 tidak valid (0), 400-449 (1), >=450
-       setara predikat cumlaude (2). */
     if ($kolomData == 'skor_toefl') {
         $skor = is_numeric($nilai) ? floatval($nilai) : 0;
         if ($skor < 400) {
@@ -457,19 +430,6 @@ foreach ($hasilTopsis as $hasil) {
     $nim             = mysqli_real_escape_string($conn, $hasil['nim']);
     $periode         = mysqli_real_escape_string($conn, sprintf('Semester %02d', $hasil['semester']));
 
-    /* PERBAIKAN BUG KRITIS: sebelumnya baris di bawah memakai
-       variabel $nilaiPreferensi, $jarakPositif, $jarakNegatif -
-       padahal $jarakPositif/$jarakNegatif TIDAK PERNAH
-       didefinisikan sama sekali di file ini (selalu jadi string
-       kosong -> tersimpan sebagai 0 oleh MySQL), dan
-       $nilaiPreferensi adalah SISA dari loop perhitungan
-       sebelumnya (baris ~325-366) - bukan nilai milik mahasiswa
-       yang sedang diproses di loop INI, tapi sisa nilai milik
-       mahasiswa TERAKHIR yang diproses di loop sebelumnya.
-       Akibatnya SEMUA mahasiswa tersimpan dengan skor yang sama
-       persis, dan jarak D+/D- selalu 0. Sekarang diambil dari
-       $hasil (data per-mahasiswa yang benar, sesuai iterasi
-       foreach saat ini). */
     $nilaiPreferensi = mysqli_real_escape_string($conn, $hasil['nilai_preferensi']);
     $jarakPositif    = mysqli_real_escape_string($conn, $hasil['jarak_positif']);
     $jarakNegatif    = mysqli_real_escape_string($conn, $hasil['jarak_negatif']);
@@ -525,12 +485,6 @@ foreach ($hasilTopsis as $hasil) {
        0.26 - 0.50 = Waspada
        0.51 - 0.75 = Aman
        0.76 - 1.00 = Sangat Baik
-
-       PERBAIKAN: upsert per (nim, periode_evaluasi), sama
-       seperti ranking_topsis di atas - histori periode lain
-       tidak lagi terhapus. Loop ini juga hanya berjalan kalau
-       ADA PERUBAHAN dibanding periode terakhir (flag yang
-       sama dengan ranking_topsis di atas).
    ============================================= */
 if ($adaPerubahanDibandingPeriodeTerakhir) {
 foreach ($hasilTopsis as $hasil) {

@@ -1,4 +1,5 @@
 <?php
+// Hitung ranking mahasiswa dengan metode SAW (Simple Additive Weighting).
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -17,16 +18,28 @@ mysqli_query($conn, "DELETE FROM ranking_saw");
 /* AMBIL DATA AKADEMIK TERBARU PER MAHASISWA */
 $dataMahasiswa = [];
 
+/* PERBAIKAN BUG: "terbaru" ditentukan dari nilai semester
+   TERBESAR milik NIM (bukan MAX(id_data)), supaya upload data
+   semester lama/sebelumnya tidak keliru dianggap sebagai
+   snapshot terbaru mahasiswa. */
 $qMahasiswa = mysqli_query($conn, "
     SELECT da.*
     FROM data_akademik da
     INNER JOIN (
-        SELECT nim, MAX(id_data) AS id_data_terbaru
+        SELECT nim, MAX(semester) AS semester_terbaru
         FROM data_akademik
         GROUP BY nim
-    ) terbaru
-    ON da.nim = terbaru.nim
-    AND da.id_data = terbaru.id_data_terbaru
+    ) semTerbaru
+    ON da.nim = semTerbaru.nim
+    AND da.semester = semTerbaru.semester_terbaru
+    INNER JOIN (
+        SELECT nim, semester, MAX(id_data) AS id_data_terbaru
+        FROM data_akademik
+        GROUP BY nim, semester
+    ) idTerbaru
+    ON da.nim = idTerbaru.nim
+    AND da.semester = idTerbaru.semester
+    AND da.id_data = idTerbaru.id_data_terbaru
     WHERE da.status_sia IS NULL OR LOWER(da.status_sia) = 'aktif'
 ");
 

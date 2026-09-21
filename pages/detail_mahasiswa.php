@@ -14,9 +14,6 @@ if ($nim == '') {
     exit;
 }
 
-/* PERBAIKAN (paritas Admin = Kaprodi): admin diperlakukan
-   sama seperti kaprodi di halaman ini - kembali ke monitoring.php,
-   dashboard_admin.php, dan tidak dibatasi WHERE per-DPA. */
 $backPage      = 'monitoring.php';
 $dashboardPage = ($_SESSION['role'] == 'dpa') ? 'dashboard_dpa.php' : (($_SESSION['role'] == 'admin') ? 'dashboard_admin.php' : 'dashboard_kaprodi.php');
 $roleLabel     = ($_SESSION['role'] == 'dpa') ? 'Dosen PA' : (($_SESSION['role'] == 'admin') ? 'Admin' : 'Kaprodi');
@@ -60,6 +57,149 @@ if (!$data) {
     ";
     exit;
 }
+
+/* ═══════════════════════════════════════════════════════
+   ANALISIS CUTI & INDIKASI DO
+   =========================================================== */
+$riwayatLengkapQuery = mysqli_query($conn, "
+    SELECT semester, status_sia, ipk, sks_lulus, sks_diambil
+    FROM data_akademik
+    WHERE nim = '$nim'
+    ORDER BY semester ASC
+");
+
+$riwayatPerSemester = [];
+while ($rr = mysqli_fetch_assoc($riwayatLengkapQuery)) {
+    $riwayatPerSemester[(int) $rr['semester']] = $rr;
+}
+
+$semesterTerbaruMhs = !empty($riwayatPerSemester) ? max(array_keys($riwayatPerSemester)) : 0;
+
+/* Jumlah semester cuti/tidak aktif yang terjadi PADA semester <= 4 */
+$jumlahCutiHingga4 = 0;
+foreach ($riwayatPerSemester as $smt => $rr) {
+    if ($smt <= 4 && strtolower(trim((string) $rr['status_sia'])) === 'tidak_aktif') {
+        $jumlahCutiHingga4++;
+    }
+}
+
+/* Checkpoint pertama bergeser sebanyak jumlah cuti:
+   0 cuti -> semester 4, 1 cuti -> semester 5,
+   2 cuti -> semester 6 */
+$checkpointPertama = 4 + $jumlahCutiHingga4;
+
+$kesimpulanCuti = '';
+$indikasiDoPertama = null; // null = belum bisa dievaluasi (belum sampai checkpoint)
+
+if ($jumlahCutiHingga4 === 0) {
+    $kesimpulanCuti = 'Tidak terdapat data cuti pada semester hingga semester 4 yang memengaruhi periode analisis DO.';
+} else {
+    $kesimpulanCuti = sprintf(
+        'Mahasiswa memiliki %d semester cuti pada masa studi hingga semester 4. Semester cuti tidak diperhitungkan dalam proses TOPSIS, namun tetap diperhitungkan dalam masa studi. Oleh karena itu, analisis indikasi DO ditinjau pada semester %d.',
+        $jumlahCutiHingga4,
+        $checkpointPertama
+    );
+}
+
+/* Evaluasi kriteria DO baseline PADA data semester checkpoint
+   (kalau datanya sudah ada / semester itu sudah dilewati):
+     - IPK < 2.00, ATAU
+     - cuti >= 2 kali (pada semester <= 4), ATAU
+     - SKS Lulus kumulatif < 40 pada checkpoint tsb. */
+$alasanDoPertama = [];
+if ($semesterTerbaruMhs >= $checkpointPertama && isset($riwayatPerSemester[$checkpointPertama])) {
+    $dataCheckpoint = $riwayatPerSemester[$checkpointPertama];
+
+    if (is_numeric($dataCheckpoint['ipk']) && floatval($dataCheckpoint['ipk']) < 2.00) {
+        $alasanDoPertama[] = 'IPK di semester ' . $checkpointPertama . ' kurang dari 2,00 (' . number_format($dataCheckpoint['ipk'], 2) . ')';
+    }
+    if ($jumlahCutiHingga4 >= 2) {
+        $alasanDoPertama[] = 'terdapat ' . $jumlahCutiHingga4 . ' kali cuti pada semester <= 4';
+    }
+    if (is_numeric($dataCheckpoint['sks_lulus']) && floatval($dataCheckpoint['sks_lulus']) < 40) {
+        $alasanDoPertama[] = 'jumlah SKS lulus kumulatif di semester ' . $checkpointPertama . ' belum mencapai 40 (' . floatval($dataCheckpoint['sks_lulus']) . ')';
+    }
+
+    $indikasiDoPertama = !empty($alasanDoPertama);
+}
+
+/* Checkpoint kedua: sekitar batas akhir masa studi (semester 14).
+   Risiko DO tinggi jika mahasiswa sudah mencapai/lewat semester 14
+   namun Sisa Masa Studi (data terbaru) sudah habis (<= 0). */
+$indikasiDoKedua = null;
+if ($semesterTerbaruMhs >= 14) {
+    $sisaMasaStudiTerbaru = isset($data['sisa_masa_studi']) ? floatval($data['sisa_masa_studi']) : null;
+    $indikasiDoKedua = ($sisaMasaStudiTerbaru !== null && $sisaMasaStudiTerbaru <= 0);
+}
+
+/* Ringkasan indikasi DO dalam SATU kalimat, dipakai untuk
+   digabung ke paragraf "Keterangan" di kotak Kesimpulan
+   Evaluasi Akademik (lihat $ringkasanDo di bawah).*/
+if ($indikasiDoPertama === true || $indikasiDoKedua === true) {
+    $ringkasanDo = 'Terdapat indikasi risiko DO (Drop Out).'
+        . ($jumlahCutiHingga4 > 0 ? ' ' . $kesimpulanCuti : '')
+        . (!empty($alasanDoPertama) ? ' Penyebab pada checkpoint semester ' . $checkpointPertama . ': ' . implode('; ', $alasanDoPertama) . '.' : '')
+        . ($indikasiDoKedua === true ? ' Mahasiswa juga sudah melewati batas masa studi (checkpoint semester 14).' : '')
+        . ' Rekomendasi: Dosen PA disarankan segera melakukan konsultasi akademik intensif, meninjau ulang rencana studi, dan melibatkan Kaprodi/pihak terkait untuk mencegah risiko Drop Out.';
+} elseif ($indikasiDoPertama === false || $indikasiDoKedua === false) {
+    $ringkasanDo = 'Belum terdeteksi indikasi risiko DO (Drop Out) dari kriteria IPK, cuti, maupun SKS pada checkpoint yang sudah dilewati.';
+} elseif ($semesterTerbaruMhs < $checkpointPertama) {
+    /* Mahasiswa memang BELUM sampai semester checkpoint - wajar
+       kalau belum bisa dievaluasi, jadi pesan ini tetap tampil. */
+    $ringkasanDo = 'Indikasi risiko DO (Drop Out) belum dapat dievaluasi karena mahasiswa belum mencapai checkpoint semester ' . $checkpointPertama . '.';
+} else {
+    /* mahasiswa SUDAH di atas semester checkpoint,
+       hanya saja data akademik pada semester checkpoint itu
+       tidak ditemukan (mis. ada semester yang datanya belum
+       diupload). Pesan "belum mencapai checkpoint" akan
+       menyesatkan kalau tetap ditampilkan di sini, jadi bagian
+       Indikasi DO cukup dikosongkan (tidak ditampilkan). */
+    $ringkasanDo = '';
+}
+
+/* Ringkasan predikat akademik (cumlaude) berdasarkan IPK,
+   SKS bernilai di bawah B, dan skor TOEFL - mengikuti syarat
+   cumlaude yang diminta: IPK >= 3,50, TIDAK ADA mata kuliah
+   dengan nilai di bawah B (sks_nilai_kurang_b = 0), dan skor
+   TOEFL minimal 450. Ketiga syarat harus terpenuhi sekaligus. */
+$ipkTerbaru        = isset($data['ipk']) && is_numeric($data['ipk']) ? floatval($data['ipk']) : null;
+$sksKurangBTerbaru = isset($data['sks_nilai_kurang_b']) && is_numeric($data['sks_nilai_kurang_b']) ? floatval($data['sks_nilai_kurang_b']) : null;
+$toeflTerbaru      = isset($data['skor_toefl']) && is_numeric($data['skor_toefl']) ? floatval($data['skor_toefl']) : null;
+
+if ($ipkTerbaru === null) {
+    $ringkasanPredikat = 'Predikat akademik (cumlaude) belum dapat ditentukan karena data IPK belum tersedia.';
+} else {
+    $syaratCumlaude = [];
+    if ($ipkTerbaru < 3.50) {
+        $syaratCumlaude[] = 'IPK belum mencapai 3,50 (saat ini ' . number_format($ipkTerbaru, 2) . ')';
+    }
+    if ($sksKurangBTerbaru === null) {
+        $syaratCumlaude[] = 'data jumlah SKS nilai di bawah B belum tersedia';
+    } elseif ($sksKurangBTerbaru > 0) {
+        $syaratCumlaude[] = 'masih terdapat mata kuliah dengan nilai di bawah B (' . $sksKurangBTerbaru . ' SKS)';
+    }
+    if ($toeflTerbaru === null) {
+        $syaratCumlaude[] = 'data skor TOEFL belum tersedia';
+    } elseif ($toeflTerbaru < 450) {
+        $syaratCumlaude[] = 'skor TOEFL belum mencapai 450 (saat ini ' . $toeflTerbaru . ')';
+    }
+
+    if (empty($syaratCumlaude)) {
+        $ringkasanPredikat = 'Mahasiswa memenuhi seluruh syarat predikat Cumlaude saat ini: IPK ' . number_format($ipkTerbaru, 2) . ' (>= 3,50), tidak ada mata kuliah dengan nilai di bawah B, dan skor TOEFL ' . $toeflTerbaru . ' (>= 450). Predikat final tetap ditentukan saat kelulusan dalam masa studi yang wajar.';
+    } else {
+        $ringkasanPredikat = 'Mahasiswa belum memenuhi syarat predikat Cumlaude karena: ' . implode('; ', $syaratCumlaude) . '.';
+    }
+}
+
+/* Bagian HTML berjudul untuk Indikasi DO & Predikat Cumlaude,
+   dipakai di kotak Kesimpulan Evaluasi Akademik (baik saat
+   TOPSIS sudah maupun belum dijalankan). Bagian Indikasi DO
+   dikosongkan total (termasuk judulnya) kalau $ringkasanDo
+   kosong, supaya tidak menampilkan judul tanpa isi. */
+$bagianDo = $ringkasanDo !== ''
+    ? '<strong>Indikasi DO (Drop Out):</strong> ' . htmlspecialchars($ringkasanDo)
+    : '';
+$bagianPredikat = '<strong>Predikat Kelulusan (Cumlaude):</strong> ' . htmlspecialchars($ringkasanPredikat);
 
 $spearman = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT *
@@ -108,6 +248,16 @@ $dataSkorTopsis     = [];
 $dataRankingTopsis  = [];
 
 while ($rt = mysqli_fetch_assoc($riwayatTopsisQuery)) {
+    /* kosongkan/lewati titik data pada semester di mana
+       mahasiswa berstatus cuti (tidak_aktif) - semester cuti tidak
+       punya aktivitas akademik sehingga tidak relevan ditampilkan
+       di grafik tren TOPSIS. */
+    $semesterAngka = (int) preg_replace('/\D/', '', $rt['periode_evaluasi']);
+    $statusSemesterIni = $riwayatPerSemester[$semesterAngka]['status_sia'] ?? null;
+    if (strtolower(trim((string) $statusSemesterIni)) === 'tidak_aktif') {
+        continue;
+    }
+
     $labelPeriodeTopsis[] = $rt['periode_evaluasi'];
     $dataSkorTopsis[]     = floatval($rt['nilai_preferensi']);
     $dataRankingTopsis[]  = intval($rt['ranking']);
@@ -133,7 +283,7 @@ if (strtolower($status) == 'kritis') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detail Mahasiswa</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=10">
+    <link rel="stylesheet" href="../assets/css/style.css?v=12">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -190,6 +340,9 @@ if (strtolower($status) == 'kritis') {
                 <span class="status-badge <?php echo $statusClass; ?>">
                     <?php echo $status; ?>
                 </span>
+                <?php if (strtolower(trim((string) ($data['status_sia'] ?? ''))) === 'tidak_aktif'): ?>
+                    <span class="status-badge status-cuti">Tidak Aktif</span>
+                <?php endif; ?>
             </div>
         </section>
 
@@ -222,6 +375,9 @@ if (strtolower($status) == 'kritis') {
                     <?php echo $spearman['preferensi_model'] ?? 'Belum diuji'; ?>
                     <br><br>
 
+                    Nilai mahasiswa ini:
+                    <br>
+
                     TOPSIS:
                     <?php
                     echo isset($data['nilai_topsis'])
@@ -251,18 +407,18 @@ if (strtolower($status) == 'kritis') {
 
             <div class="chart-detail-box">
                 <h3 class="info-clickable-text" onclick="showInfoModal('grafik_tren_topsis')">Tren Performa Mahasiswa Berdasarkan TOPSIS</h3>
-                <?php if (count($dataSkorTopsis) >= 2): ?>
+                <?php if (count($dataSkorTopsis) >= 1): ?>
                     <div class="chart-canvas-wrapper"><canvas id="grafikTrenTopsis"></canvas></div>
-                    <small style="color:#888;display:block;margin-top:8px;">
-                        Menampilkan perubahan skor preferensi TOPSIS mahasiswa ini dari periode ke periode. Skor mendekati 1.0 = performa lebih baik.
+                    <small class="small-note-top8">
+                        <?php if (count($dataSkorTopsis) >= 2): ?>
+                            Menampilkan perubahan skor preferensi TOPSIS mahasiswa ini dari periode ke periode. Skor mendekati 1.0 = performa lebih baik.
+                        <?php else: ?>
+                            Baru ada 1 periode evaluasi TOPSIS. Grafik tren antar periode akan muncul setelah periode berikutnya diproses.
+                        <?php endif; ?>
                     </small>
-                <?php elseif (count($dataSkorTopsis) == 1): ?>
-                    <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;text-align:center;padding:16px;">
-                        <span>Baru ada 1 periode evaluasi TOPSIS. Grafik tren akan muncul setelah periode berikutnya diproses.</span>
-                    </div>
                 <?php else: ?>
-                    <div style="display:flex;align-items:center;justify-content:center;height:200px;background:#f8f9fa;border:2px dashed #dee2e6;border-radius:8px;color:#6c757d;font-size:14px;font-family:Arial,sans-serif;gap:10px;">
-                        <span style="font-size:24px;">&#128202;</span>
+                    <div class="chart-placeholder-box">
+                        <span class="chart-placeholder-icon">&#128202;</span>
                         <span>Data belum tersedia. Proses TOPSIS belum dijalankan.</span>
                     </div>
                 <?php endif; ?>
@@ -515,16 +671,35 @@ if (strtolower($status) == 'kritis') {
                                 $rentangIdeal = abs($idealPos[$idK] - $idealNeg[$idK]);
 
                                 /* kontribusi: 1 = persis di solusi ideal positif,
-                                   0 = persis di solusi ideal negatif */
+                                   0 = persis di solusi ideal negatif.
+                                   CATATAN: ini rasio DALAM rentang kriteria itu
+                                   sendiri, jadi bobot Delphi-nya saling coret
+                                   (cancel out) - dipakai hanya untuk menentukan
+                                   SISI (menekan/mendukung), bukan seberapa besar
+                                   pengaruhnya. */
                                 $kontribusi = $rentangIdeal == 0
                                     ? 0.5
                                     : amankanNilaiAnalisis(1 - (abs($vij - $idealPos[$idK]) / $rentangIdeal));
+
+                                /* PERBAIKAN: "dampak" = jarak terbobot MENTAH ke
+                                   solusi ideal positif (|vij - idealPos|, dengan
+                                   vij & idealPos SUDAH dikali bobot Delphi).
+                                   Beda dengan $kontribusi di atas, nilai ini TIDAK
+                                   dinormalisasi ulang per kriteria, sehingga bobot
+                                   Delphi-nya tetap berpengaruh - kriteria berbobot
+                                   rendah otomatis punya dampak kecil meski posisi
+                                   relatifnya ekstrem, sesuai kontribusi aslinya ke
+                                   D+/D- pada rumus TOPSIS. Ini yang dipakai untuk
+                                   memilih & mengurutkan kriteria yang paling
+                                   menekan/mendukung skor. */
+                                $dampak = amankanNilaiAnalisis(abs($vij - $idealPos[$idK]));
 
                                 $kontribusiKriteria[] = [
                                     'nama'       => $krit['nama_kriteria'],
                                     'nilai_asli' => ambilNilaiTampilan($data, $krit['kolom_data']),
                                     'jenis'      => strtolower(trim($krit['jenis'])),
-                                    'kontribusi' => $kontribusi
+                                    'kontribusi' => $kontribusi,
+                                    'dampak'     => $dampak
                                 ];
                             }
                         }
@@ -537,16 +712,20 @@ if (strtolower($status) == 'kritis') {
                     return $a['kontribusi'] <=> $b['kontribusi'];
                 });
 
+                /* PERBAIKAN: kalau mahasiswa sedang cuti/tidak aktif,
+                   skor TOPSIS-nya dihitung dari data akademik lama
+                   (semester sebelum cuti), jadi tidak relevan menuding
+                   kriteria tertentu "menekan" atau "mendukung" skor
+                   saat ini - daftar ini disembunyikan untuk mahasiswa
+                   berstatus tidak aktif. */
+                $mahasiswaTidakAktif = strtolower(trim((string) ($data['status_sia'] ?? ''))) === 'tidak_aktif';
+
                 $penjelasanKriteria = '';
-                if (count($kontribusiKriteria) >= 2) {
-                    /* PERBAIKAN: kriteria hanya dianggap "menekan" jika kontribusinya
+                if (!$mahasiswaTidakAktif && count($kontribusiKriteria) >= 2) {
+                    /* kriteria hanya dianggap "menekan" jika kontribusinya
                        benar-benar < 0.5 (lebih dekat ke solusi ideal NEGATIF), dan
                        hanya dianggap "mendukung" jika > 0.5 (lebih dekat ke solusi
-                       ideal POSITIF). Sebelumnya daftar selalu dibelah dua rata tanpa
-                       cek ambang batas ini, sehingga kriteria yang sebenarnya bagus
-                       bisa ikut terlabeli "menekan skor" hanya karena kebagian di
-                       separuh bawah urutan. Kalau salah satu sisi tidak ada yang
-                       benar-benar memenuhi syarat, bagian itu tidak ditampilkan. */
+                       ideal POSITIF). */
                     $kandidatMenekan = array_filter($kontribusiKriteria, function ($k) {
                         return $k['kontribusi'] < 0.5;
                     });
@@ -554,18 +733,24 @@ if (strtolower($status) == 'kritis') {
                         return $k['kontribusi'] > 0.5;
                     });
 
+                    /* dari kandidat menekan/mendukung, urutkan
+                       berdasarkan 'dampak' (yang memuat bobot Delphi). */
+                    $kandidatMenekan   = array_values($kandidatMenekan);
+                    $kandidatMendukung = array_values($kandidatMendukung);
+
+                    usort($kandidatMenekan, function ($a, $b) {
+                        return $b['dampak'] <=> $a['dampak'];
+                    });
+                    usort($kandidatMendukung, function ($a, $b) {
+                        return $a['dampak'] <=> $b['dampak'];
+                    });
+
                     $jumlahSorotMenekan   = min(2, count($kandidatMenekan));
                     $jumlahSorotMendukung = min(2, count($kandidatMendukung));
 
-                    /* $kandidatMenekan sudah terurut naik (terendah dulu) -> ambil dari depan */
-                    $menekan = array_slice(array_values($kandidatMenekan), 0, $jumlahSorotMenekan);
-                    /* $kandidatMendukung perlu dibalik dulu supaya yang TERTINGGI di depan */
-                    $mendukung = array_slice(array_reverse(array_values($kandidatMendukung)), 0, $jumlahSorotMendukung);
+                    $menekan   = array_slice($kandidatMenekan, 0, $jumlahSorotMenekan);
+                    $mendukung = array_slice($kandidatMendukung, 0, $jumlahSorotMendukung);
 
-                    /* PERBAIKAN: daftar kriteria ditampilkan MENURUN
-                       (satu baris per kriteria) memakai <ul><li>,
-                       bukan disatukan jadi satu kalimat panjang -
-                       supaya lebih mudah dibaca cepat oleh Dosen PA. */
                     $formatDaftarList = function ($daftar) {
                         $items = array_map(function ($k) {
                             $nilai = is_numeric($k['nilai_asli'])
@@ -573,7 +758,7 @@ if (strtolower($status) == 'kritis') {
                                 : $k['nilai_asli'];
                             return '<li>' . htmlspecialchars($k['nama']) . ' (' . htmlspecialchars($nilai) . ')</li>';
                         }, $daftar);
-                        return '<ul style="margin:4px 0 8px 18px;padding:0;">' . implode('', $items) . '</ul>';
+                        return '<ul class="list-tight">' . implode('', $items) . '</ul>';
                     };
 
                     if (!empty($menekan)) {
@@ -586,18 +771,32 @@ if (strtolower($status) == 'kritis') {
                     }
                 }
 
+                /*prediksi predikat Cumlaude hanya relevan
+                   ditampilkan untuk mahasiswa berkategori "Sangat Baik"
+                   atau "Aman" */
+                $tampilkanPredikat = in_array($statusLabel, ['Sangat Baik', 'Aman'], true);
+
                 $keterangan = sprintf(
-                    'Mahasiswa masuk kategori "%s" karena nilai preferensi TOPSIS-nya %s berada pada rentang %s.%s',
+                    'Mahasiswa masuk kategori "%s" karena nilai preferensi TOPSIS-nya %s berada pada rentang %s.%s%s%s',
                     $statusLabel,
                     number_format($nilaiPref, 4),
                     $rentang,
-                    $penjelasanKriteria
+                    $penjelasanKriteria,
+                    ($bagianDo !== '' ? '<div class="keterangan-block">' . $bagianDo . '</div>' : ''),
+                    ($tampilkanPredikat ? '<div class="keterangan-block">' . $bagianPredikat . '</div>' : '')
                 );
 
+                $kelasKesimpulanMap = [
+                    'Kritis'      => 'kesimpulan-kritis',
+                    'Waspada'     => 'kesimpulan-waspada',
+                    'Aman'        => 'kesimpulan-aman',
+                    'Sangat Baik' => 'kesimpulan-sangat-baik'
+                ];
                 $bg          = $warnaBg[$statusLabel]     ?? '#f8f9fa';
                 $border      = $warnaBorder[$statusLabel] ?? '#ccc';
                 $ikon        = $warnaIkon[$statusLabel]    ?? 'ℹ️';
                 $rekomendasi = $rekomendasiMap[$statusLabel] ?? '-';
+                $kelasKesimpulan = $kelasKesimpulanMap[$statusLabel] ?? 'kesimpulan-netral';
 
                 /* Faktor akademik yang berkontribusi */
                 $faktor = [];
@@ -610,51 +809,48 @@ if (strtolower($status) == 'kritis') {
                 if (!empty($data['skor_toefl']))         $faktor[] = 'Skor TOEFL: ' . $data['skor_toefl'];
             ?>
 
-            <div style="
-                background: <?php echo $bg; ?>;
-                border-left: 4px solid <?php echo $border; ?>;
-                border-radius: 8px;
-                padding: 18px 20px;
-                margin-top: 20px;
-                font-family: Arial, sans-serif;
-            ">
-                <h4 style="margin:0 0 12px 0;font-size:15px;color:#333;">
+            <div class="kesimpulan-box <?php echo $kelasKesimpulan; ?>">
+                <h4>
                     <?php echo $ikon; ?> Kesimpulan Evaluasi Akademik
                 </h4>
 
                 <div class="table-scroll-wrapper">
-                <table style="width:100%;border-collapse:collapse;font-size:13px;color:#444;">
+                <table class="kv-table">
                     <tr>
-                        <td style="padding:4px 0;width:180px;font-weight:bold;" class="info-clickable-text" onclick="showInfoModal('kategori_status')">Kategori</td>
-                        <td style="padding:4px 0;">:&nbsp;
-                            <span style="font-weight:bold;color:<?php echo $border; ?>;">
+                        <td class="kv-label">
+                            <span class="info-clickable-text" onclick="showInfoModal('kategori_status')">Kategori</span>
+                        </td>
+                        <td>:&nbsp;
+                            <span class="kategori-value">
                                 <?php echo $statusLabel; ?>
                             </span>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:4px 0;font-weight:bold;" class="info-clickable-text" onclick="showInfoModal('nilai_preferensi_topsis')">Nilai Preferensi TOPSIS</td>
-                        <td style="padding:4px 0;">:&nbsp;<?php echo number_format($nilaiPref, 4); ?></td>
+                        <td class="kv-label">
+                            <span class="info-clickable-text" onclick="showInfoModal('nilai_preferensi_topsis')">Nilai Preferensi TOPSIS</span>
+                        </td>
+                        <td>:&nbsp;<?php echo number_format($nilaiPref, 4); ?></td>
                     </tr>
                     <?php if ($rankingMhs): ?>
                     <tr>
-                        <td style="padding:4px 0;font-weight:bold;">Ranking</td>
-                        <td style="padding:4px 0;">:&nbsp;#<?php echo $rankingMhs; ?></td>
+                        <td class="kv-label">Ranking</td>
+                        <td>:&nbsp;#<?php echo $rankingMhs; ?></td>
                     </tr>
                     <?php endif; ?>
                     <?php if (!empty($faktor)): ?>
                     <tr>
-                        <td style="padding:4px 0;font-weight:bold;vertical-align:top;">Faktor Akademik</td>
-                        <td style="padding:4px 0;">:&nbsp;<?php echo implode(' &nbsp;|&nbsp; ', $faktor); ?></td>
+                        <td class="kv-label">Faktor Akademik</td>
+                        <td>:&nbsp;<?php echo implode(' &nbsp;|&nbsp; ', $faktor); ?></td>
                     </tr>
                     <?php endif; ?>
-                    <tr>
-                        <td style="padding:10px 0 4px 0;font-weight:bold;vertical-align:top;">Keterangan</td>
-                        <td style="padding:10px 0 4px 0;">:&nbsp;<?php echo $keterangan; ?></td>
+                    <tr class="kv-row-spaced">
+                        <td class="kv-label">Keterangan</td>
+                        <td>:&nbsp;<?php echo $keterangan; ?></td>
                     </tr>
-                    <tr>
-                        <td style="padding:10px 0 4px 0;font-weight:bold;vertical-align:top;">Rekomendasi</td>
-                        <td style="padding:10px 0 4px 0;">:&nbsp;<?php echo $rekomendasi; ?></td>
+                    <tr class="kv-row-spaced">
+                        <td class="kv-label">Rekomendasi</td>
+                        <td>:&nbsp;<?php echo $rekomendasi; ?></td>
                     </tr>
                 </table>
                 </div>
@@ -662,168 +858,56 @@ if (strtolower($status) == 'kritis') {
 
             <?php else: ?>
 
-            <div style="
-                background: #f8f9fa;
-                border-left: 4px solid #ccc;
-                border-radius: 8px;
-                padding: 18px 20px;
-                margin-top: 20px;
-                font-family: Arial, sans-serif;
-                color: #6c757d;
-                font-size: 13px;
-            ">
-                ℹ️ Kesimpulan belum dapat ditampilkan karena proses TOPSIS belum dijalankan untuk mahasiswa ini.
+            <div class="kesimpulan-box kesimpulan-netral">
+                ℹ️ Kesimpulan kategori TOPSIS belum dapat ditampilkan karena proses TOPSIS belum dijalankan untuk mahasiswa ini.
+                <?php if ($bagianDo !== ''): ?>
+                <div class="keterangan-block"><?php echo $bagianDo; ?></div>
+                <?php endif; ?>
             </div>
 
             <?php endif; ?>
 
             <!-- ═══════════════════════════════════════
-                 KESIMPULAN CUTI & ANALISIS INDIKASI DO
-                 (fitur baru sesuai permintaan - independen
-                 dari kotak "Kesimpulan Evaluasi Akademik"
-                 di atas, karena tidak bergantung pada
-                 TOPSIS sudah dijalankan atau belum)
+                 DETAIL ANALISIS INDIKASI DO
+                 (rinciannya per-checkpoint - ringkasan
+                 kesimpulannya sudah digabung ke paragraf
+                 "Keterangan" pada kotak Kesimpulan Evaluasi
+                 Akademik di atas)
                  ═══════════════════════════════════════ -->
-            <?php
-            /* Ambil seluruh riwayat semester mahasiswa ini,
-               diurutkan naik, supaya bisa: (1) menghitung
-               berapa kali cuti pada semester <= 4, dan
-               (2) mengevaluasi kriteria DO di semester
-               checkpoint yang relevan menggunakan data
-               akademik pada semester tersebut (bukan data
-               semester terbaru), karena checkpoint bisa jadi
-               beberapa semester di belakang semester
-               berjalan mahasiswa saat ini. */
-            $riwayatLengkapQuery = mysqli_query($conn, "
-                SELECT semester, status_sia, ipk, sks_lulus, sks_diambil
-                FROM data_akademik
-                WHERE nim = '$nim'
-                ORDER BY semester ASC
-            ");
-
-            $riwayatPerSemester = [];
-            while ($rr = mysqli_fetch_assoc($riwayatLengkapQuery)) {
-                $riwayatPerSemester[(int) $rr['semester']] = $rr;
-            }
-
-            $semesterTerbaruMhs = !empty($riwayatPerSemester) ? max(array_keys($riwayatPerSemester)) : 0;
-
-            /* Jumlah semester cuti/tidak aktif yang terjadi PADA semester <= 4 */
-            $jumlahCutiHingga4 = 0;
-            foreach ($riwayatPerSemester as $smt => $rr) {
-                if ($smt <= 4 && strtolower(trim((string) $rr['status_sia'])) === 'tidak_aktif') {
-                    $jumlahCutiHingga4++;
-                }
-            }
-
-            /* Checkpoint pertama bergeser sebanyak jumlah cuti:
-               0 cuti -> semester 4, 1 cuti -> semester 5,
-               2 cuti -> semester 6, dst (4 + jumlah cuti). */
-            $checkpointPertama = 4 + $jumlahCutiHingga4;
-
-            $kesimpulanCuti = '';
-            $indikasiDoPertama = null; // null = belum bisa dievaluasi (belum sampai checkpoint)
-
-            if ($jumlahCutiHingga4 === 0) {
-                $kesimpulanCuti = 'Tidak terdapat data cuti pada semester hingga semester 4 yang memengaruhi periode analisis DO.';
-            } else {
-                $kesimpulanCuti = sprintf(
-                    'Mahasiswa memiliki %d semester cuti pada masa studi hingga semester 4. Semester cuti tidak diperhitungkan dalam proses TOPSIS, namun tetap diperhitungkan dalam masa studi. Oleh karena itu, analisis indikasi DO ditinjau pada semester %d.',
-                    $jumlahCutiHingga4,
-                    $checkpointPertama
-                );
-            }
-
-            /* Evaluasi kriteria DO baseline PADA data semester checkpoint
-               (kalau datanya sudah ada / semester itu sudah dilewati):
-                 - IPK < 2.00, ATAU
-                 - cuti >= 2 kali (pada semester <= 4), ATAU
-                 - SKS Lulus kumulatif < 40 pada checkpoint tsb.
-
-               CATATAN ASUMSI (mohon dikoreksi kalau keliru): "jumlah SKS
-               yang diambil tidak sampai 40" diartikan sebagai SKS LULUS
-               KUMULATIF (kolom sks_lulus / "SKS Kumulatif" di file
-               excel) pada semester checkpoint - karena SKS per-semester
-               saja (~20) hampir selalu di bawah 40 sehingga tidak
-               relevan sebagai indikator risiko. */
-            $alasanDoPertama = [];
-            if ($semesterTerbaruMhs >= $checkpointPertama && isset($riwayatPerSemester[$checkpointPertama])) {
-                $dataCheckpoint = $riwayatPerSemester[$checkpointPertama];
-
-                if (is_numeric($dataCheckpoint['ipk']) && floatval($dataCheckpoint['ipk']) < 2.00) {
-                    $alasanDoPertama[] = 'IPK di semester ' . $checkpointPertama . ' kurang dari 2,00 (' . number_format($dataCheckpoint['ipk'], 2) . ')';
-                }
-                if ($jumlahCutiHingga4 >= 2) {
-                    $alasanDoPertama[] = 'terdapat ' . $jumlahCutiHingga4 . ' kali cuti pada semester <= 4';
-                }
-                if (is_numeric($dataCheckpoint['sks_lulus']) && floatval($dataCheckpoint['sks_lulus']) < 40) {
-                    $alasanDoPertama[] = 'jumlah SKS lulus kumulatif di semester ' . $checkpointPertama . ' belum mencapai 40 (' . floatval($dataCheckpoint['sks_lulus']) . ')';
-                }
-
-                $indikasiDoPertama = !empty($alasanDoPertama);
-            }
-
-            /* Checkpoint kedua: sekitar batas akhir masa studi
-               (semester 14). Karena instruksi tidak merinci kriteria
-               spesifik untuk checkpoint ini, ASUMSI yang dipakai:
-               risiko DO tinggi jika mahasiswa sudah mencapai/lewat
-               semester 14 namun Sisa Masa Studi (data terbaru) sudah
-               habis (<= 0) - artinya batas maksimal masa studi
-               terlampaui. Mohon dikonfirmasi/disesuaikan jika
-               kriteria yang dimaksud berbeda. */
-            $indikasiDoKedua = null;
-            if ($semesterTerbaruMhs >= 14) {
-                $sisaMasaStudiTerbaru = isset($data['sisa_masa_studi']) ? floatval($data['sisa_masa_studi']) : null;
-                $indikasiDoKedua = ($sisaMasaStudiTerbaru !== null && $sisaMasaStudiTerbaru <= 0);
-            }
-            ?>
-
-            <div style="
-                background: <?php echo $jumlahCutiHingga4 > 0 ? '#fff8e1' : '#f8f9fa'; ?>;
-                border-left: 4px solid <?php echo $jumlahCutiHingga4 > 0 ? '#f39c12' : '#ccc'; ?>;
-                border-radius: 8px;
-                padding: 18px 20px;
-                margin-top: 20px;
-                font-family: Arial, sans-serif;
-                font-size: 13px;
-                color: #444;
-            ">
-                <h4 style="margin:0 0 12px 0;font-size:15px;color:#333;">
-                    📌 Kesimpulan Cuti &amp; Analisis Indikasi DO
+            <?php if ($indikasiDoPertama !== null || $indikasiDoKedua !== null): ?>
+            <div class="kesimpulan-box <?php echo $jumlahCutiHingga4 > 0 ? 'kesimpulan-cuti-ada' : 'kesimpulan-cuti-tidak-ada'; ?>">
+                <h4>
+                    📌 Detail Analisis Indikasi DO
                 </h4>
 
-                <p style="margin:0 0 10px 0;"><?php echo htmlspecialchars($kesimpulanCuti); ?></p>
+                <p class="p-note-tight"><?php echo htmlspecialchars($kesimpulanCuti); ?></p>
 
-                <?php if ($indikasiDoPertama === null): ?>
-                    <p style="margin:0;color:#6c757d;">
-                        Analisis indikasi DO untuk checkpoint semester <?php echo $checkpointPertama; ?> belum dapat ditampilkan
-                        karena mahasiswa belum mencapai/data semester tersebut belum diupload.
-                    </p>
-                <?php elseif ($indikasiDoPertama): ?>
-                    <p style="margin:0;color:#c0392b;font-weight:bold;">
+                <?php if ($indikasiDoPertama === true): ?>
+                    <p class="p-alert-danger">
                         ⚠️ Indikasi DO pada checkpoint semester <?php echo $checkpointPertama; ?>: TERDETEKSI RISIKO.
                     </p>
-                    <ul style="margin:6px 0 0 18px;padding:0;">
+                    <ul class="list-tight-alt">
                         <?php foreach ($alasanDoPertama as $alasan): ?>
                             <li><?php echo htmlspecialchars($alasan); ?></li>
                         <?php endforeach; ?>
                     </ul>
-                <?php else: ?>
-                    <p style="margin:0;color:#27ae60;font-weight:bold;">
+                <?php elseif ($indikasiDoPertama === false): ?>
+                    <p class="p-alert-success">
                         ✅ Indikasi DO pada checkpoint semester <?php echo $checkpointPertama; ?>: tidak terdeteksi risiko dari kriteria IPK, cuti, maupun SKS.
                     </p>
                 <?php endif; ?>
 
                 <?php if ($indikasiDoKedua !== null): ?>
-                    <p style="margin:10px 0 0 0;<?php echo $indikasiDoKedua ? 'color:#c0392b;font-weight:bold;' : 'color:#27ae60;font-weight:bold;'; ?>">
+                    <p class="<?php echo $indikasiDoKedua ? 'p-alert-danger-top10' : 'p-alert-success-top10'; ?>">
                         <?php echo $indikasiDoKedua ? '⚠️' : '✅'; ?> Checkpoint semester 14: <?php echo $indikasiDoKedua ? 'mahasiswa sudah melewati batas masa studi (Sisa Masa Studi habis) - risiko DO tinggi.' : 'mahasiswa masih dalam batas masa studi yang wajar.'; ?>
                     </p>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
 
             <br>
 
-            <a href="<?php echo $backPage; ?>" class="btn-add" style="text-decoration:none;">
+            <a href="<?php echo $backPage; ?>" class="btn-add text-underline-none">
                 Kembali
             </a>
         </section>
@@ -901,7 +985,7 @@ if (strtolower($status) == 'kritis') {
     var skorTopsis    = <?php echo json_encode($dataSkorTopsis); ?>;
     var rankingTopsis = <?php echo json_encode($dataRankingTopsis); ?>;
 
-    if (skorTopsis.length < 2) return;
+    if (skorTopsis.length < 1) return;
 
     var gradientTopsis = ctxTopsis.getContext('2d').createLinearGradient(0, 0, 0, 280);
     gradientTopsis.addColorStop(0, 'rgba(16, 163, 74, 0.35)');
@@ -973,6 +1057,6 @@ if (strtolower($status) == 'kritis') {
 </script>
 
 <script src="../assets/js/sidebar.js?v=2"></script>
-<script src="../assets/js/info_modal.js?v=1"></script>
+<script src="../assets/js/info_modal.js?v=3"></script>
 </body>
 </html>

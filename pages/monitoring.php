@@ -1,4 +1,5 @@
 <?php
+// Halaman daftar & pencarian mahasiswa beserta skor TOPSIS dan status kategori.
 session_start();
 include "../config/database.php";
 
@@ -86,7 +87,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Mahasiswa</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css?v=10">
+    <link rel="stylesheet" href="../assets/css/style.css?v=12">
 </head>
 <body>
 
@@ -154,7 +155,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
                     value="<?php echo htmlspecialchars($keyword); ?>"
                 >
 
-                <button type="submit" style="border:none;background:none;cursor:pointer;">
+                <button type="submit" class="btn-icon-plain">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </button>
             </div>
@@ -178,9 +179,9 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
                         <?php } ?>
                         <th>IPK</th>
                         <th>SKS</th>
-                        <th style="text-align:center;"><span class="info-clickable-text" onclick="showInfoModal('nilai_preferensi_topsis')">Skor TOPSIS</span></th>
-                        <th style="text-align:center;"><span class="info-clickable-text" onclick="showInfoModal('kategori_status')">Status</span></th>
-                        <th style="text-align:center;">Aksi</th>
+                        <th class="text-center"><span class="info-clickable-text" onclick="showInfoModal('nilai_preferensi_topsis')">Skor TOPSIS</span></th>
+                        <th class="text-center"><span class="info-clickable-text" onclick="showInfoModal('kategori_status')">Status</span></th>
+                        <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
 
@@ -203,15 +204,15 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
                             <?php } ?>
                             <td><?php echo $row['ipk']; ?></td>
                             <td><?php echo $row['sks_lulus']; ?></td>
-                            <td style="text-align:center;"><?php echo $row['nilai_preferensi'] ? number_format($row['nilai_preferensi'], 4) : '-'; ?></td>
-                            <td style="text-align:center;">
+                            <td class="text-center"><?php echo $row['nilai_preferensi'] ? number_format($row['nilai_preferensi'], 4) : '-'; ?></td>
+                            <td class="text-center">
                                 <?php if ($statusClass) { ?>
                                     <span class="status-pill <?php echo $statusClass; ?>"><?php echo $status; ?></span>
                                 <?php } else { ?>
                                     <?php echo $status; ?>
                                 <?php } ?>
                             </td>
-                            <td style="text-align:center;">
+                            <td class="text-center">
                                 <a class="btn-detail" href="detail_mahasiswa.php?nim=<?php echo $row['nim']; ?>">
                                     Detail
                                 </a>
@@ -220,7 +221,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
                         <?php } ?>
                     <?php } else { ?>
                         <tr>
-                            <td colspan="<?php echo $role !== 'dpa' ? 9 : 8; ?>" style="text-align:center;">
+                            <td colspan="<?php echo $role !== 'dpa' ? 9 : 8; ?>" class="text-center">
                                 <?php echo $role === 'dpa' ? 'Tidak ada mahasiswa bimbingan' : 'Data tidak ditemukan'; ?>
                             </td>
                         </tr>
@@ -233,12 +234,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
 </div>
 
 <script>
-/* PERBAIKAN: pastikan tabel dengan scroll horizontal selalu
-   mulai dari posisi PALING KIRI saat halaman dimuat - beberapa
-   browser (terutama saat kembali dari halaman lain via tombol
-   back, atau reload) bisa mempertahankan posisi scroll lama
-   dari kunjungan sebelumnya, membuat kolom pertama (Ranking,
-   NIM) tersembunyi di luar area terlihat. */
+/* tabel dengan scroll horizontal selalu, mulai dari posisi PALING KIRI saat halaman dimuat*/
 document.querySelectorAll('.table-scroll-wrapper').forEach(function (el) {
     el.scrollLeft = 0;
 });

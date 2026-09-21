@@ -1,4 +1,5 @@
 <?php
+// Hapus satu akun user (admin/kaprodi/dpa) dari tabel user.
 session_start();
 include "../config/database.php";
 

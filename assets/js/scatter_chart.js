@@ -70,11 +70,14 @@ function renderScatterChart(canvasId, dataPoints, resetZoomBtnId, onClickPoint) 
        jadi "kotor" secara visual - sulit dibaca.
 
        Sekarang HANYA digambar garis batas tipis putus-putus
-       (tanpa isi warna, tanpa teks). Kategori tetap 100% jelas
-       terbaca dari WARNA TITIK + LEGEND yang sudah ada di atas
-       chart - garis ini murni referensi visual tambahan, bukan
-       satu-satunya sumber informasi, jadi tidak masalah kalau
-       di beberapa level zoom sebagian garis tidak terlihat. */
+       (tanpa isi warna) DENGAN label angka ambang batas (0.25/
+       0.50/0.75) langsung di ujung tiap garis, supaya jelas garis
+       mana untuk ambang berapa - sebelumnya cuma mengandalkan
+       kemiringan garis yang sulit dibedakan mata, apalagi kalau
+       skala sumbu X dan Y tidak sama persis (garis ambang 0.75
+       bisa terlihat pendek/berhenti cepat karena secara matematis
+       memang tidak ada mahasiswa dengan skor >0.75 di luar area
+       itu - bukan garis yang salah gambar). */
     var zonaPlugin = {
         id: 'zonaLatar_' + canvasId,
         beforeDraw: function(chart) {
@@ -85,13 +88,26 @@ function renderScatterChart(canvasId, dataPoints, resetZoomBtnId, onClickPoint) 
 
             var xMax = Math.max(xScale.max, 0.0001);
             var yMax = Math.max(yScale.max, 0.0001);
-            var jauh = (xMax + yMax) * 50;
 
-            function pxOrigin() {
-                return { x: xScale.getPixelForValue(0), y: yScale.getPixelForValue(0) };
+            function pxTitik(xData, yData) {
+                return { x: xScale.getPixelForValue(xData), y: yScale.getPixelForValue(yData) };
             }
-            function pxSlope(slope) {
-                return { x: xScale.getPixelForValue(jauh), y: yScale.getPixelForValue(slope * jauh) };
+
+            /* PERBAIKAN: hitung LANGSUNG titik ujung garis yang
+               terlihat (perpotongan dengan tepi atas ATAU tepi
+               kanan area chart), tanpa melalui titik "jauh" di
+               luar layar yang lalu dipotong (clip) oleh Chart.js.
+               Cara lama itu rawan meleset kalau skala sumbu belum
+               100% final saat pertama kali digambar. Dengan
+               geometri langsung begini, kemiringan garis dijamin
+               presisi = slope yang diminta, berapa pun rasio
+               sumbu X:Y saat itu. */
+            function titikUjung(slope) {
+                var xTembusAtas = yMax / slope; // x saat garis tembus tepi atas (y = yMax)
+                if (xTembusAtas <= xMax) {
+                    return { xData: xTembusAtas, yData: yMax };
+                }
+                return { xData: xMax, yData: slope * xMax }; // garis tembus tepi kanan duluan
             }
 
             ctx.save();
@@ -99,20 +115,37 @@ function renderScatterChart(canvasId, dataPoints, resetZoomBtnId, onClickPoint) 
             ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top);
             ctx.clip();
 
-            ctx.strokeStyle = 'rgba(150,150,150,0.35)';
             ctx.setLineDash([4, 4]);
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.25;
 
-            var o = pxOrigin();
+            var o = pxTitik(0, 0);
 
             /* 3 garis batas: skor 0.25 (kemiringan 1/3), 0.50
-               (kemiringan 1), dan 0.75 (kemiringan 3) */
-            [1/3, 1, 3].forEach(function (slope) {
-                var p = pxSlope(slope);
+               (kemiringan 1), dan 0.75 (kemiringan 3) - tiap garis
+               dikasih warna & label angka ambangnya sendiri supaya
+               tidak ambigu garis mana untuk skor berapa. */
+            var garisAmbang = [
+                { slope: 1 / 3, label: '0.25', warna: 'rgba(255,107,107,0.55)' },
+                { slope: 1,     label: '0.50', warna: 'rgba(255,196,107,0.55)' },
+                { slope: 3,     label: '0.75', warna: 'rgba(0,199,129,0.55)' }
+            ];
+
+            garisAmbang.forEach(function (g) {
+                var ujung   = titikUjung(g.slope);
+                var pxUjung = pxTitik(ujung.xData, ujung.yData);
+
+                ctx.strokeStyle = g.warna;
                 ctx.beginPath();
                 ctx.moveTo(o.x, o.y);
-                ctx.lineTo(p.x, p.y);
+                ctx.lineTo(pxUjung.x, pxUjung.y);
                 ctx.stroke();
+
+                ctx.setLineDash([]);
+                ctx.fillStyle = g.warna.replace('0.55', '1');
+                ctx.font = 'bold 10px Arial, sans-serif';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(g.label, pxUjung.x + 4, pxUjung.y - 2);
+                ctx.setLineDash([4, 4]);
             });
 
             ctx.setLineDash([]);

@@ -1,4 +1,5 @@
 <?php
+// Proses form login: cek username/password, buat session, dan refresh VIEW data 'terbaru' di database.
 session_start();
 include "../config/database.php";
 
@@ -34,31 +35,53 @@ if ($user && password_verify($password, $user['password'])) {
     }
 
     // 3. Refresh VIEW data_akademik_terbaru agar kolom baru ikut masuk
+    //    PERBAIKAN BUG: sebelumnya "terbaru" ditentukan dari
+    //    MAX(id_data) (baris terakhir yang di-INSERT). Ini salah
+    //    kalau admin meng-upload data semester LAMA/sebelumnya
+    //    setelah data semester yang lebih baru sudah ada di
+    //    database - baris lama tsb baru saja di-INSERT sehingga
+    //    id_data-nya justru lebih besar, dan VIEW ini keliru
+    //    menganggapnya sebagai data "terbaru". Sekarang "terbaru"
+    //    ditentukan dari nilai semester TERBESAR milik NIM
+    //    tersebut (id_data hanya dipakai sebagai penentu kalau
+    //    ada duplikat semester yang sama).
     mysqli_query($conn, "
         CREATE OR REPLACE VIEW data_akademik_terbaru AS
         SELECT da.*
         FROM data_akademik da
         INNER JOIN (
-            SELECT nim, MAX(id_data) AS id_data_terbaru
+            SELECT nim, MAX(semester) AS semester_terbaru
             FROM data_akademik
             GROUP BY nim
-        ) terbaru
-        ON da.nim = terbaru.nim
-        AND da.id_data = terbaru.id_data_terbaru
+        ) semTerbaru
+        ON da.nim = semTerbaru.nim
+        AND da.semester = semTerbaru.semester_terbaru
+        INNER JOIN (
+            SELECT nim, semester, MAX(id_data) AS id_data_terbaru
+            FROM data_akademik
+            GROUP BY nim, semester
+        ) idTerbaru
+        ON da.nim = idTerbaru.nim
+        AND da.semester = idTerbaru.semester
+        AND da.id_data = idTerbaru.id_data_terbaru
     ");
 
     // 4. Buat VIEW lain jika belum ada (aman: CREATE OR REPLACE tidak merusak data)
+    //    PERBAIKAN BUG yang sama: "terbaru" ditentukan dari nomor
+    //    semester yang tertanam di periode_evaluasi ("Semester NN"),
+    //    bukan dari MAX(id_ranking)/MAX(id_hasil), supaya upload
+    //    data semester lama tidak keliru dianggap periode terbaru.
     mysqli_query($conn, "
         CREATE OR REPLACE VIEW ranking_topsis_terbaru AS
         SELECT rt.*
         FROM ranking_topsis rt
         INNER JOIN (
-            SELECT nim, MAX(id_ranking) AS id_ranking_terbaru
+            SELECT nim, MAX(CAST(SUBSTRING(periode_evaluasi, 10) AS UNSIGNED)) AS semester_terbaru
             FROM ranking_topsis
             GROUP BY nim
         ) terbaru
         ON rt.nim = terbaru.nim
-        AND rt.id_ranking = terbaru.id_ranking_terbaru
+        AND CAST(SUBSTRING(rt.periode_evaluasi, 10) AS UNSIGNED) = terbaru.semester_terbaru
     ");
 
     mysqli_query($conn, "
@@ -66,12 +89,12 @@ if ($user && password_verify($password, $user['password'])) {
         SELECT he.*
         FROM hasil_evaluasi he
         INNER JOIN (
-            SELECT nim, MAX(id_hasil) AS id_hasil_terbaru
+            SELECT nim, MAX(CAST(SUBSTRING(periode_evaluasi, 10) AS UNSIGNED)) AS semester_terbaru
             FROM hasil_evaluasi
             GROUP BY nim
         ) terbaru
         ON he.nim = terbaru.nim
-        AND he.id_hasil = terbaru.id_hasil_terbaru
+        AND CAST(SUBSTRING(he.periode_evaluasi, 10) AS UNSIGNED) = terbaru.semester_terbaru
     ");
 
     if ($user['role'] == 'admin') {

@@ -1,4 +1,5 @@
 <?php
+// Dashboard untuk role Admin: ringkasan statistik, scatter TOPSIS, dan log aktivitas terbaru.
 session_start();
 include "../config/database.php";
 
@@ -24,10 +25,8 @@ $totalKriteria = mysqli_fetch_assoc(mysqli_query($conn, "
     FROM kriteria
 "));
 
-/* PERBAIKAN (paritas Admin = Kaprodi, sesuai hasil UAT):
-   query kategori & scatter chart di bawah ini SAMA PERSIS
-   seperti yang dipakai di dashboard_kaprodi.php - supaya
-   Admin bisa ikut memantau tanpa perlu login sebagai Kaprodi. */
+/* query kategori & scatter chart di bawah ini SAMA PERSIS
+   seperti yang dipakai di dashboard_kaprodi.php  */
 $kritis = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total 
     FROM hasil_evaluasi_terbaru 
@@ -60,7 +59,7 @@ $logAktivitas = mysqli_query($conn, "
     FROM log_aktivitas l
     LEFT JOIN user u ON l.id_user = u.id_user
     ORDER BY l.tanggal DESC
-    
+    LIMIT 25
 ");
 ?>
 
@@ -70,7 +69,7 @@ $logAktivitas = mysqli_query($conn, "
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Admin</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=10">
+    <link rel="stylesheet" href="../assets/css/style.css?v=12">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
@@ -184,7 +183,7 @@ $logAktivitas = mysqli_query($conn, "
         <!-- SECTION 3C: PIE CHART (paritas dengan Kaprodi) -->
         <section class="chart-area">
             <div>
-                <h4 class="info-clickable-text" style="text-align:center;" onclick="showInfoModal('pie_kategori')">Grafik Sebaran Kategori</h4>
+                <h4 class="info-clickable-text text-center" onclick="showInfoModal('pie_kategori')">Grafik Sebaran Kategori</h4>
                 <div class="chart-box">
                     <div class="pie-container">
                         <canvas id="pieChart"></canvas>
@@ -211,13 +210,13 @@ $logAktivitas = mysqli_query($conn, "
                     <p>
                         <strong><?php echo $totalPerluPerhatian; ?> dari <?php echo $totalDievaluasi; ?> mahasiswa</strong>
                         (<?php echo $persenPerluPerhatian; ?>%) berada di kategori
-                        <strong style="color:#ff6b6b;">Kritis</strong> atau
-                        <strong style="color:#e6a400;">Waspada</strong> dan perlu
+                        <strong class="text-danger">Kritis</strong> atau
+                        <strong class="text-warning">Waspada</strong> dan perlu
                         menjadi prioritas pembinaan akademik oleh Kaprodi dan Dosen PA.
                     </p>
                     <?php if ((int) $kritis['total'] > 0): ?>
                     <p>
-                        <strong style="color:#ff6b6b;"><?php echo $kritis['total']; ?> mahasiswa</strong>
+                        <strong class="text-danger"><?php echo $kritis['total']; ?> mahasiswa</strong>
                         di antaranya berkategori Kritis - butuh perhatian segera.
                     </p>
                     <?php endif; ?>
@@ -229,16 +228,16 @@ $logAktivitas = mysqli_query($conn, "
 
         <!-- SECTION 3D: SCATTER CHART (paritas dengan Kaprodi) -->
         <section class="scatter-box">
-            <h4 class="info-clickable-text" style="text-align:center;" onclick="showInfoModal('scatter_topsis')">Sebaran Mahasiswa terhadap Solusi Ideal TOPSIS</h4>
+            <h4 class="info-clickable-text text-center" onclick="showInfoModal(\'scatter_topsis\')">Sebaran Mahasiswa terhadap Solusi Ideal TOPSIS</h4>
             <div class="chart-canvas-wrapper">
                 <canvas id="scatterChart"></canvas>
             </div>
-            <div style="text-align:right;margin-top:8px;">
-                <button id="btnResetZoomAdmin" style="padding:4px 12px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#f8f9fa;cursor:pointer;">
+            <div class="text-right mt-8">
+                <button id="btnResetZoomAdmin" class="btn-reset-zoom">
                     🔍 Reset Zoom
                 </button>
             </div>
-            <small style="color:#888;display:block;margin-top:4px;text-align:center;">
+            <small class="small-note text-center">
                 Gunakan scroll mouse untuk zoom, klik+geser untuk pan, klik titik untuk detail mahasiswa.
             </small>
         </section>
@@ -280,7 +279,7 @@ $logAktivitas = mysqli_query($conn, "
                     <?php } else { ?>
 
                         <tr>
-                            <td colspan="3" style="text-align:center;">
+                            <td colspan="3" class="text-center">
                                 Belum ada aktivitas
                             </td>
                         </tr>

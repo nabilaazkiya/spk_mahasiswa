@@ -1,4 +1,5 @@
 <?php
+// Halaman awal aplikasi: redirect ke dashboard sesuai role kalau sudah login, atau ke login.php kalau belum.
 session_start();
 
 if (isset($_SESSION['role'])) {

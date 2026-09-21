@@ -1,4 +1,5 @@
 <?php
+// Uji korelasi Spearman antara hasil TOPSIS dan SAW untuk validasi konsistensi kedua metode.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }

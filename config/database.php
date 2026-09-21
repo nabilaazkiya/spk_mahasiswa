@@ -1,4 +1,5 @@
 <?php
+// Koneksi ke database MySQL (mysqli) dipakai di semua file lain.
 $host = "localhost";
 $user = "root";
 $pass = "";

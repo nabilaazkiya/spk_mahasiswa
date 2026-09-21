@@ -1,4 +1,5 @@
 <?php
+// Jalankan ulang seluruh proses TOPSIS, SAW, dan uji Spearman dari data akademik terkini.
 session_start();
 include "../config/database.php";
 

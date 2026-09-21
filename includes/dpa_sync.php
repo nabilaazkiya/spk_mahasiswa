@@ -1,4 +1,5 @@
 <?php
+// Fungsi bantu untuk mencocokkan nama Dosen PA di data akademik dengan akun user ber-role dpa.
 /**
  * =============================================
  * SINKRONISASI MAHASISWA <-> AKUN DPA

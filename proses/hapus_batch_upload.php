@@ -1,4 +1,5 @@
 <?php
+// Hapus satu batch data akademik yang pernah diupload admin, sekaligus catat ke log aktivitas.
 session_start();
 include "../config/database.php";
 
@@ -90,7 +91,7 @@ try {
     exit;
 }
 
-/* PERBAIKAN: rerun TOPSIS/SAW/Spearman setelah data akademik
+/* rerun TOPSIS/SAW/Spearman setelah data akademik
    berubah (dihapus), supaya ranking di dashboard tidak lagi
    menyertakan mahasiswa yang datanya baru saja dihapus. */
 define('SPK_CHAIN', true);

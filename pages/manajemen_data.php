@@ -1,4 +1,5 @@
 <?php
+// Halaman admin untuk kelola akun user dan upload/lihat data akademik mahasiswa.
 session_start();
 include "../config/database.php";
 
@@ -22,12 +23,20 @@ mysqli_query($conn, "
     SELECT da.*
     FROM data_akademik da
     INNER JOIN (
-        SELECT nim, MAX(id_data) AS id_data_terbaru
+        SELECT nim, MAX(semester) AS semester_terbaru
         FROM data_akademik
         GROUP BY nim
-    ) terbaru
-    ON da.nim = terbaru.nim
-    AND da.id_data = terbaru.id_data_terbaru
+    ) semTerbaru
+    ON da.nim = semTerbaru.nim
+    AND da.semester = semTerbaru.semester_terbaru
+    INNER JOIN (
+        SELECT nim, semester, MAX(id_data) AS id_data_terbaru
+        FROM data_akademik
+        GROUP BY nim, semester
+    ) idTerbaru
+    ON da.nim = idTerbaru.nim
+    AND da.semester = idTerbaru.semester
+    AND da.id_data = idTerbaru.id_data_terbaru
 ");
 
 $keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
@@ -108,7 +117,7 @@ if ($cekDosen) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manajemen Data</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=10">
+    <link rel="stylesheet" href="../assets/css/style.css?v=12">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
@@ -151,7 +160,7 @@ if ($cekDosen) {
             </div>
 
             <div class="table-toolbar">
-                <form method="GET" action="manajemen_data.php" style="display:flex; gap:10px; align-items:center;">
+                <form method="GET" action="manajemen_data.php" class="filter-form-inline">
                     <input 
                         type="text" 
                         name="keyword" 
@@ -211,7 +220,7 @@ if ($cekDosen) {
             </div>
 
             <?php if (!empty($dosenBelumPunyaAkun)): ?>
-            <div style="background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#664d03;font-size:14px;">
+            <div class="notice-box-warning">
                 <strong>&#9888; <?php echo count($dosenBelumPunyaAkun); ?> nama Dosen PA di data akademik belum punya akun DPA:</strong>
                 <?php echo htmlspecialchars(implode(', ', $dosenBelumPunyaAkun)); ?>.
                 Mahasiswa bimbingan mereka tidak akan muncul di dashboard DPA manapun sampai akun dibuat dengan nama yang <u>persis sama</u>.
@@ -264,7 +273,7 @@ if ($cekDosen) {
             </table>
             </div>
 
-            <div style="margin-top:40px;">
+            <div class="mt-40">
                 <h2>Data Akademik Mahasiswa</h2>
 
                 <div class="table-scroll-wrapper">
@@ -339,34 +348,34 @@ if ($cekDosen) {
 <!-- ═══════════════════════════════════════
      MODAL: LIHAT / HAPUS DOKUMEN TERUPLOAD
      ═══════════════════════════════════════ -->
-<div id="modalDokumen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:#fff;border-radius:10px;padding:24px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;font-family:Arial,sans-serif;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="margin:0;font-size:18px;color:#333;">Data Upload Tersimpan</h3>
-            <button type="button" onclick="document.getElementById('modalDokumen').style.display='none';" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1;">&times;</button>
+<div id="modalDokumen" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-box-header">
+            <h3 class="modal-box-title">Data Upload Tersimpan</h3>
+            <button type="button" onclick="document.getElementById('modalDokumen').style.display='none';" class="modal-box-close-btn">&times;</button>
         </div>
 
         <?php if (empty($daftarBatchUpload)): ?>
-            <p style="color:#888;">Belum ada data yang diupload.</p>
+            <p class="modal-empty-text">Belum ada data yang diupload.</p>
         <?php else: ?>
-            <p style="color:#888;font-size:12px;margin-top:0;">Dikelompokkan berdasarkan waktu upload (semua data dari satu kali proses import yang sama).</p>
-            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <p class="modal-sub-note">Dikelompokkan berdasarkan waktu upload (semua data dari satu kali proses import yang sama).</p>
+            <table class="data-table-plain">
                 <thead>
-                    <tr style="text-align:left;border-bottom:2px solid #eee;">
-                        <th style="padding:8px 6px;">Waktu Upload</th>
-                        <th style="padding:8px 6px;">Jumlah Data</th>
-                        <th style="padding:8px 6px;"></th>
+                    <tr>
+                        <th>Waktu Upload</th>
+                        <th>Jumlah Data</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($daftarBatchUpload as $batch): ?>
-                        <tr style="border-bottom:1px solid #f0f0f0;">
-                            <td style="padding:8px 6px;white-space:nowrap;"><?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?></td>
-                            <td style="padding:8px 6px;"><?php echo (int) $batch['jumlah_data']; ?> baris</td>
-                            <td style="padding:8px 6px;">
+                        <tr>
+                            <td class="text-nowrap"><?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?></td>
+                            <td><?php echo (int) $batch['jumlah_data']; ?> baris</td>
+                            <td>
                                 <form method="POST" action="../proses/hapus_batch_upload.php" onsubmit="return confirm('Hapus data upload tanggal <?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?>?\n\nSeluruh data akademik mahasiswa (<?php echo (int) $batch['jumlah_data']; ?> baris) dari batch ini akan IKUT TERHAPUS dari database. Tindakan ini tidak bisa dibatalkan.');">
                                     <input type="hidden" name="waktu_upload" value="<?php echo htmlspecialchars($batch['tanggal_upload']); ?>">
-                                    <button type="submit" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:6px 12px;cursor:pointer;font-size:12px;">
+                                    <button type="submit" class="btn-danger-sm">
                                         Hapus
                                     </button>
                                 </form>

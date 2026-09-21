@@ -1,4 +1,5 @@
 <?php
+// Fungsi bantu untuk membaca isi file .xlsx tanpa library eksternal.
 /**
  * =============================================
  * XLSX READER (NATIVE, TANPA LIBRARY EKSTERNAL)

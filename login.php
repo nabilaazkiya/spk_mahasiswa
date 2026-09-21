@@ -1,3 +1,4 @@
+<!-- Halaman login: form username & password untuk masuk ke aplikasi. -->
 <!DOCTYPE html>
 <html lang="id">
 <head>

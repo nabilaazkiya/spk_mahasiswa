@@ -1,4 +1,5 @@
 <?php
+// Proses form tambah user baru: validasi input, hash password, simpan ke tabel user.
 session_start();
 
 include "../config/database.php";
@@ -37,7 +38,7 @@ if (mysqli_num_rows($cek) > 0) {
     exit;
 }
 
-/* PERBAIKAN: cek nama lengkap duplikat HANYA DI ROLE YANG
+/* cek nama lengkap duplikat HANYA DI ROLE YANG
    SAMA - bukan lintas semua role. Satu orang yang sama boleh
    punya 2 akun berbeda (misal Kaprodi + DPA sekaligus), karena
    data yang ditampilkan ke masing-masing role memang berbeda.
@@ -94,7 +95,7 @@ if ($query) {
 
     $idAdmin = $_SESSION['id_user'];
 
-    /* PERBAIKAN BUG: setelah akun DPA baru dibuat, langsung
+    /* setelah akun DPA baru dibuat, langsung
        coba hubungkan ke mahasiswa yang datanya sudah lebih
        dulu diimpor (lihat includes/dpa_sync.php untuk detail
        akar masalahnya). Tanpa ini, dashboard DPA yang baru

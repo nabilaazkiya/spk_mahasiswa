@@ -1,4 +1,5 @@
 <?php
+// Halaman admin untuk melihat & menghitung ulang bobot Delphi tiap kriteria penilaian.
 session_start();
 include "../config/database.php";
 
@@ -152,7 +153,7 @@ $totalKriteria = mysqli_num_rows($kriteria);
 <head>
     <meta charset="UTF-8">
     <title>Konfigurasi Kriteria</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css?v=12">
 </head>
 <body>
 
@@ -194,7 +195,7 @@ $totalKriteria = mysqli_num_rows($kriteria);
                     dan digunakan dalam proses TOPSIS dan SAW.
                 </p>
                 <?php if (!file_exists($fileCsvDelphi)): ?>
-                    <p style="color:#b91c1c; font-weight:600;">
+                    <p class="text-warning-strong">
                         &#9888; File assets/data_delphi.csv tidak ditemukan. Bobot Delphi tidak dapat dihitung ulang -
                         data kriteria yang tampil di bawah adalah data lama dari database.
                     </p>
@@ -250,7 +251,7 @@ $totalKriteria = mysqli_num_rows($kriteria);
                         ?>
                     <?php } else { ?>
                         <tr>
-                            <td colspan="9" style="text-align:center;">Belum ada data kriteria</td>
+                            <td colspan="9" class="text-center">Belum ada data kriteria</td>
                         </tr>
                     <?php } ?>
                 </tbody>
@@ -260,7 +261,7 @@ $totalKriteria = mysqli_num_rows($kriteria);
                 <div>
                     <h2>
                         Total Bobot :
-                        <?php echo number_format($totalBobot, 6); ?>
+                        <?php echo number_format($totalBobot, 2); ?>
                         (<?php echo number_format($totalBobot * 100, 2); ?>%)
                         <?php echo (abs($totalBobot - 1.00) < 0.001) ? '✅' : '❌'; ?>
                     </h2>
