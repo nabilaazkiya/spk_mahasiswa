@@ -20,9 +20,12 @@ $totalDosen = mysqli_fetch_assoc(mysqli_query($conn, "
     AND dosen_pa != ''
 "));
 
+/* Hanya kriteria AKTIF (kolom_data terisi) - sama dengan yang tampil di
+   Konfigurasi Kriteria dan yang dipakai TOPSIS/SAW. */
 $totalKriteria = mysqli_fetch_assoc(mysqli_query($conn, "
-    SELECT COUNT(*) AS total 
+    SELECT COUNT(*) AS total
     FROM kriteria
+    WHERE kolom_data IS NOT NULL AND kolom_data != ''
 "));
 
 /* PERBAIKAN (paritas Admin = Kaprodi, sesuai hasil UAT):

@@ -78,8 +78,13 @@ $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik_terbaru $where
    import - lihat $waktuImpor di proses/input_data.php), untuk modal
    Lihat/Hapus Data Upload. */
 $daftarBatchUpload = [];
+/* Pastikan kolom nama_file ada (batch lama akan tampil "-") */
+$cekKolomNamaFile = mysqli_query($conn, "SHOW COLUMNS FROM riwayat_akademik LIKE 'nama_file'");
+if ($cekKolomNamaFile && mysqli_num_rows($cekKolomNamaFile) == 0) {
+    mysqli_query($conn, "ALTER TABLE riwayat_akademik ADD COLUMN nama_file VARCHAR(255) NULL");
+}
 $batchQuery = mysqli_query($conn, "
-    SELECT ra.tanggal_upload, COUNT(*) AS jumlah_data
+    SELECT ra.tanggal_upload, COUNT(*) AS jumlah_data, MAX(ra.nama_file) AS nama_file
     FROM riwayat_akademik ra
     GROUP BY ra.tanggal_upload
     ORDER BY ra.tanggal_upload DESC
@@ -363,6 +368,7 @@ if ($cekDosen) {
                 <thead>
                     <tr>
                         <th>Waktu Upload</th>
+                        <th>Nama File</th>
                         <th>Jumlah Data</th>
                         <th></th>
                     </tr>
@@ -371,9 +377,10 @@ if ($cekDosen) {
                     <?php foreach ($daftarBatchUpload as $batch): ?>
                         <tr>
                             <td class="text-nowrap"><?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?></td>
+                            <td><?php echo htmlspecialchars($batch['nama_file'] ?? '') !== '' ? htmlspecialchars($batch['nama_file']) : '-'; ?></td>
                             <td><?php echo (int) $batch['jumlah_data']; ?> baris</td>
                             <td>
-                                <form method="POST" action="../proses/hapus_batch_upload.php" onsubmit="return confirm('Hapus data upload tanggal <?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?>?\n\nSeluruh data akademik mahasiswa (<?php echo (int) $batch['jumlah_data']; ?> baris) dari batch ini akan IKUT TERHAPUS dari database. Tindakan ini tidak bisa dibatalkan.');">
+                                <form method="POST" action="../proses/hapus_batch_upload.php" onsubmit="return confirm('Hapus data upload <?php echo htmlspecialchars(str_replace(["'", '"', '\\', "\r", "\n"], '', (string) ($batch['nama_file'] ?? ''))); ?> (tanggal <?php echo date('d/m/Y H:i:s', strtotime($batch['tanggal_upload'])); ?>)?\n\nSeluruh data akademik mahasiswa (<?php echo (int) $batch['jumlah_data']; ?> baris) dari batch ini akan IKUT TERHAPUS dari database. Tindakan ini tidak bisa dibatalkan.');">
                                     <input type="hidden" name="waktu_upload" value="<?php echo htmlspecialchars($batch['tanggal_upload']); ?>">
                                     <button type="submit" class="btn-danger-sm">
                                         Hapus

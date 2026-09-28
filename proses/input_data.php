@@ -127,6 +127,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
        dengan pembaca yang sesuai.)
        ============================================= */
     $namaFile = $_FILES['file_import']['name'];
+
+    /* Pastikan kolom nama_file ada di riwayat_akademik (migrasi otomatis) */
+    $cekKolomNamaFile = mysqli_query($conn, "SHOW COLUMNS FROM riwayat_akademik LIKE 'nama_file'");
+    if ($cekKolomNamaFile && mysqli_num_rows($cekKolomNamaFile) == 0) {
+        mysqli_query($conn, "ALTER TABLE riwayat_akademik ADD COLUMN nama_file VARCHAR(255) NULL");
+    }
     $ekstensi = strtolower(pathinfo($namaFile, PATHINFO_EXTENSION));
 
     if (!in_array($ekstensi, ['csv', 'xlsx'], true)) {
@@ -612,11 +618,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
            untuk fitur hapus per-batch di manajemen_data.php, tanpa
            perlu tabel/kolom tambahan. */
         if ($okAkademik && $idData) {
+            /* nama_file = nama asli file yang diupload (tampil di modal
+               Lihat/Hapus Data Upload). Kolom dibuat otomatis kalau belum ada. */
             $stmtRiwayat = mysqli_prepare($conn, "
-                INSERT INTO riwayat_akademik (nim, id_data, tanggal_upload)
-                VALUES (?, ?, ?)
+                INSERT INTO riwayat_akademik (nim, id_data, tanggal_upload, nama_file)
+                VALUES (?, ?, ?, ?)
             ");
-            mysqli_stmt_bind_param($stmtRiwayat, "sis", $nim, $idData, $waktuImpor);
+            $namaFileSimpan = mb_substr(basename((string) $namaFile), 0, 255);
+            mysqli_stmt_bind_param($stmtRiwayat, "siss", $nim, $idData, $waktuImpor, $namaFileSimpan);
             mysqli_stmt_execute($stmtRiwayat);
             mysqli_stmt_close($stmtRiwayat);
         }
