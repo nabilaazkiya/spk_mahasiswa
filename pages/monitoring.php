@@ -44,8 +44,6 @@ $orderBy = "r.ranking ASC";
 
 if ($sort == 'ipk') {
     $orderBy = "d.ipk DESC";
-} elseif ($sort == 'skor') {
-    $orderBy = "r.nilai_preferensi DESC";
 } elseif ($sort == 'status') {
     $orderBy = "h.status_early_warning ASC";
 } elseif ($sort == 'angkatan') {
@@ -141,7 +139,6 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
                     <select name="sort" class="sort-select" onchange="this.form.submit()">
                         <option value="ranking" <?php if ($sort == 'ranking') echo 'selected'; ?>>Ranking</option>
                         <option value="ipk" <?php if ($sort == 'ipk') echo 'selected'; ?>>IPK</option>
-                        <option value="skor" <?php if ($sort == 'skor') echo 'selected'; ?>>Skor TOPSIS</option>
                         <option value="angkatan" <?php if ($sort == 'angkatan') echo 'selected'; ?>>Angkatan</option>
                         <!-- <option value="status" <?php if ($sort == 'status') echo 'selected'; ?>>Status</option> -->
                     </select>

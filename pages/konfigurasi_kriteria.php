@@ -259,10 +259,19 @@ $totalKriteria = mysqli_num_rows($kriteria);
 
             <section class="weight-card">
                 <div>
+                    <?php
+                        $persenBobot = round($totalBobot * 100, 2);
+                        /* PERBAIKAN: kalau hasilnya bulat (mis. 100), tidak perlu
+                           tampil ".00" di belakangnya - baru pakai 2 desimal kalau
+                           memang ada pecahannya (mis. 99.87%). */
+                        $persenBobotText = ($persenBobot == floor($persenBobot))
+                            ? number_format($persenBobot, 0)
+                            : number_format($persenBobot, 2);
+                    ?>
                     <h2>
                         Total Bobot :
                         <?php echo number_format($totalBobot, 2); ?>
-                        (<?php echo number_format($totalBobot * 100, 2); ?>%)
+                        (<?php echo $persenBobotText; ?>%)
                         <?php echo (abs($totalBobot - 1.00) < 0.001) ? '✅' : '❌'; ?>
                     </h2>
                     <p>Total kriteria: <?php echo $totalKriteria; ?></p>
