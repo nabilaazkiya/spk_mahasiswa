@@ -1,4 +1,5 @@
 <?php
+// Proses form edit user: update data akun yang sudah ada di tabel user.
 session_start();
 include "../config/database.php";
 require "../includes/dpa_sync.php";

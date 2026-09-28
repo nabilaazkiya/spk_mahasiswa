@@ -25,8 +25,10 @@ $totalKriteria = mysqli_fetch_assoc(mysqli_query($conn, "
     FROM kriteria
 "));
 
-/* query kategori & scatter chart di bawah ini SAMA PERSIS
-   seperti yang dipakai di dashboard_kaprodi.php  */
+/* PERBAIKAN (paritas Admin = Kaprodi, sesuai hasil UAT):
+   query kategori & scatter chart di bawah ini SAMA PERSIS
+   seperti yang dipakai di dashboard_kaprodi.php - supaya
+   Admin bisa ikut memantau tanpa perlu login sebagai Kaprodi. */
 $kritis = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total 
     FROM hasil_evaluasi_terbaru 
@@ -74,7 +76,7 @@ $logAktivitas = mysqli_query($conn, "
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="../assets/js/scatter_chart.js?v=2"></script>
+    <script src="../assets/js/scatter_chart.js?v=4"></script>
 </head>
 <body>
 

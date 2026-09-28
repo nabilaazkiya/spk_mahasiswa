@@ -91,7 +91,7 @@ try {
     exit;
 }
 
-/* rerun TOPSIS/SAW/Spearman setelah data akademik
+/* PERBAIKAN: rerun TOPSIS/SAW/Spearman setelah data akademik
    berubah (dihapus), supaya ranking di dashboard tidak lagi
    menyertakan mahasiswa yang datanya baru saja dihapus. */
 define('SPK_CHAIN', true);

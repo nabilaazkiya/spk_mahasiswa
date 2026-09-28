@@ -1,4 +1,5 @@
 <?php
+// Halaman detail satu mahasiswa: riwayat akademik, grafik tren, kesimpulan TOPSIS, indikasi DO, dan predikat cumlaude.
 session_start();
 include "../config/database.php";
 
@@ -14,6 +15,9 @@ if ($nim == '') {
     exit;
 }
 
+/* PERBAIKAN (paritas Admin = Kaprodi): admin diperlakukan
+   sama seperti kaprodi di halaman ini - kembali ke monitoring.php,
+   dashboard_admin.php, dan tidak dibatasi WHERE per-DPA. */
 $backPage      = 'monitoring.php';
 $dashboardPage = ($_SESSION['role'] == 'dpa') ? 'dashboard_dpa.php' : (($_SESSION['role'] == 'admin') ? 'dashboard_admin.php' : 'dashboard_kaprodi.php');
 $roleLabel     = ($_SESSION['role'] == 'dpa') ? 'Dosen PA' : (($_SESSION['role'] == 'admin') ? 'Admin' : 'Kaprodi');
@@ -60,6 +64,11 @@ if (!$data) {
 
 /* ═══════════════════════════════════════════════════════
    ANALISIS CUTI & INDIKASI DO
+   PERBAIKAN: dipindah ke sini (sebelum kotak "Kesimpulan
+   Evaluasi Akademik" dibuat) supaya kesimpulan indikasi DO
+   bisa DIGABUNG ke dalam satu paragraf "Keterangan" pada
+   kotak Kesimpulan Evaluasi Akademik, bukan berdiri sendiri
+   sebagai kotak terpisah yang judul & maksudnya kurang jelas.
    =========================================================== */
 $riwayatLengkapQuery = mysqli_query($conn, "
     SELECT semester, status_sia, ipk, sks_lulus, sks_diambil
@@ -85,7 +94,7 @@ foreach ($riwayatPerSemester as $smt => $rr) {
 
 /* Checkpoint pertama bergeser sebanyak jumlah cuti:
    0 cuti -> semester 4, 1 cuti -> semester 5,
-   2 cuti -> semester 6 */
+   2 cuti -> semester 6, dst (4 + jumlah cuti). */
 $checkpointPertama = 4 + $jumlahCutiHingga4;
 
 $kesimpulanCuti = '';
@@ -134,7 +143,12 @@ if ($semesterTerbaruMhs >= 14) {
 
 /* Ringkasan indikasi DO dalam SATU kalimat, dipakai untuk
    digabung ke paragraf "Keterangan" di kotak Kesimpulan
-   Evaluasi Akademik (lihat $ringkasanDo di bawah).*/
+   Evaluasi Akademik (lihat $ringkasanDo di bawah).
+   PERBAIKAN: rekomendasi tindak lanjut untuk risiko DO ikut
+   digabung ke sini juga - sebelumnya "Rekomendasi" pada kotak
+   Kesimpulan Evaluasi Akademik hanya bicara soal kategori
+   TOPSIS (Kritis/Waspada/dst), tidak pernah menyinggung DO
+   sama sekali walau risiko DO terdeteksi. */
 if ($indikasiDoPertama === true || $indikasiDoKedua === true) {
     $ringkasanDo = 'Terdapat indikasi risiko DO (Drop Out).'
         . ($jumlahCutiHingga4 > 0 ? ' ' . $kesimpulanCuti : '')
@@ -148,7 +162,7 @@ if ($indikasiDoPertama === true || $indikasiDoKedua === true) {
        kalau belum bisa dievaluasi, jadi pesan ini tetap tampil. */
     $ringkasanDo = 'Indikasi risiko DO (Drop Out) belum dapat dievaluasi karena mahasiswa belum mencapai checkpoint semester ' . $checkpointPertama . '.';
 } else {
-    /* mahasiswa SUDAH di atas semester checkpoint,
+    /* PERBAIKAN: mahasiswa SUDAH di atas semester checkpoint,
        hanya saja data akademik pada semester checkpoint itu
        tidak ditemukan (mis. ada semester yang datanya belum
        diupload). Pesan "belum mencapai checkpoint" akan
@@ -158,34 +172,44 @@ if ($indikasiDoPertama === true || $indikasiDoKedua === true) {
 }
 
 /* Ringkasan predikat akademik (cumlaude) berdasarkan IPK,
-   SKS bernilai di bawah B, dan skor TOEFL - mengikuti syarat
-   cumlaude yang diminta: IPK >= 3,50, TIDAK ADA mata kuliah
-   dengan nilai di bawah B (sks_nilai_kurang_b = 0), dan skor
-   TOEFL minimal 450. Ketiga syarat harus terpenuhi sekaligus. */
+   SKS bernilai di bawah B (dipakai sebagai penanda "tidak ada
+   nilai C" - kolom sks_nilai_kurang_b mencakup semua nilai di
+   bawah B, termasuk C, sehingga syarat "tidak ada nilai C"
+   otomatis terpenuhi kalau kolom ini = 0), skor TOEFL, dan
+   semester berjalan - mengikuti syarat cumlaude yang diminta:
+   IPK >= 3,60, TIDAK ADA mata kuliah dengan nilai C/di bawah B
+   (sks_nilai_kurang_b = 0), skor TOEFL > 420, dan semester
+   berjalan maksimal 9. Keempat syarat harus terpenuhi sekaligus. */
 $ipkTerbaru        = isset($data['ipk']) && is_numeric($data['ipk']) ? floatval($data['ipk']) : null;
 $sksKurangBTerbaru = isset($data['sks_nilai_kurang_b']) && is_numeric($data['sks_nilai_kurang_b']) ? floatval($data['sks_nilai_kurang_b']) : null;
 $toeflTerbaru      = isset($data['skor_toefl']) && is_numeric($data['skor_toefl']) ? floatval($data['skor_toefl']) : null;
+$semesterTerbaru   = isset($data['semester']) && is_numeric($data['semester']) ? intval($data['semester']) : null;
 
 if ($ipkTerbaru === null) {
     $ringkasanPredikat = 'Predikat akademik (cumlaude) belum dapat ditentukan karena data IPK belum tersedia.';
 } else {
     $syaratCumlaude = [];
-    if ($ipkTerbaru < 3.50) {
-        $syaratCumlaude[] = 'IPK belum mencapai 3,50 (saat ini ' . number_format($ipkTerbaru, 2) . ')';
+    if ($ipkTerbaru < 3.60) {
+        $syaratCumlaude[] = 'IPK belum mencapai 3,60 (saat ini ' . number_format($ipkTerbaru, 2) . ')';
     }
     if ($sksKurangBTerbaru === null) {
-        $syaratCumlaude[] = 'data jumlah SKS nilai di bawah B belum tersedia';
+        $syaratCumlaude[] = 'data jumlah SKS nilai C/di bawah B belum tersedia';
     } elseif ($sksKurangBTerbaru > 0) {
-        $syaratCumlaude[] = 'masih terdapat mata kuliah dengan nilai di bawah B (' . $sksKurangBTerbaru . ' SKS)';
+        $syaratCumlaude[] = 'masih terdapat mata kuliah dengan nilai C/di bawah B (' . $sksKurangBTerbaru . ' SKS)';
     }
     if ($toeflTerbaru === null) {
         $syaratCumlaude[] = 'data skor TOEFL belum tersedia';
-    } elseif ($toeflTerbaru < 450) {
-        $syaratCumlaude[] = 'skor TOEFL belum mencapai 450 (saat ini ' . $toeflTerbaru . ')';
+    } elseif ($toeflTerbaru <= 420) {
+        $syaratCumlaude[] = 'skor TOEFL belum di atas 420 (saat ini ' . $toeflTerbaru . ')';
+    }
+    if ($semesterTerbaru === null) {
+        $syaratCumlaude[] = 'data semester berjalan belum tersedia';
+    } elseif ($semesterTerbaru > 9) {
+        $syaratCumlaude[] = 'sudah melewati semester 9 (saat ini semester ' . $semesterTerbaru . ')';
     }
 
     if (empty($syaratCumlaude)) {
-        $ringkasanPredikat = 'Mahasiswa memenuhi seluruh syarat predikat Cumlaude saat ini: IPK ' . number_format($ipkTerbaru, 2) . ' (>= 3,50), tidak ada mata kuliah dengan nilai di bawah B, dan skor TOEFL ' . $toeflTerbaru . ' (>= 450). Predikat final tetap ditentukan saat kelulusan dalam masa studi yang wajar.';
+        $ringkasanPredikat = 'Mahasiswa memenuhi seluruh syarat predikat Cumlaude saat ini: IPK ' . number_format($ipkTerbaru, 2) . ' (>= 3,60), tidak ada mata kuliah dengan nilai C/di bawah B, skor TOEFL ' . $toeflTerbaru . ' (> 420), dan semester ' . $semesterTerbaru . ' (maksimal 9). Predikat final tetap ditentukan saat kelulusan dalam masa studi yang wajar.';
     } else {
         $ringkasanPredikat = 'Mahasiswa belum memenuhi syarat predikat Cumlaude karena: ' . implode('; ', $syaratCumlaude) . '.';
     }
@@ -248,7 +272,7 @@ $dataSkorTopsis     = [];
 $dataRankingTopsis  = [];
 
 while ($rt = mysqli_fetch_assoc($riwayatTopsisQuery)) {
-    /* kosongkan/lewati titik data pada semester di mana
+    /* PERBAIKAN: kosongkan/lewati titik data pada semester di mana
        mahasiswa berstatus cuti (tidak_aktif) - semester cuti tidak
        punya aktivitas akademik sehingga tidak relevan ditampilkan
        di grafik tren TOPSIS. */
@@ -722,10 +746,14 @@ if (strtolower($status) == 'kritis') {
 
                 $penjelasanKriteria = '';
                 if (!$mahasiswaTidakAktif && count($kontribusiKriteria) >= 2) {
-                    /* kriteria hanya dianggap "menekan" jika kontribusinya
+                    /* PERBAIKAN: kriteria hanya dianggap "menekan" jika kontribusinya
                        benar-benar < 0.5 (lebih dekat ke solusi ideal NEGATIF), dan
                        hanya dianggap "mendukung" jika > 0.5 (lebih dekat ke solusi
-                       ideal POSITIF). */
+                       ideal POSITIF). Sebelumnya daftar selalu dibelah dua rata tanpa
+                       cek ambang batas ini, sehingga kriteria yang sebenarnya bagus
+                       bisa ikut terlabeli "menekan skor" hanya karena kebagian di
+                       separuh bawah urutan. Kalau salah satu sisi tidak ada yang
+                       benar-benar memenuhi syarat, bagian itu tidak ditampilkan. */
                     $kandidatMenekan = array_filter($kontribusiKriteria, function ($k) {
                         return $k['kontribusi'] < 0.5;
                     });
@@ -733,8 +761,14 @@ if (strtolower($status) == 'kritis') {
                         return $k['kontribusi'] > 0.5;
                     });
 
-                    /* dari kandidat menekan/mendukung, urutkan
-                       berdasarkan 'dampak' (yang memuat bobot Delphi). */
+                    /* PERBAIKAN: dari kandidat menekan/mendukung, urutkan
+                       berdasarkan 'dampak' (yang memuat bobot Delphi),
+                       BUKAN berdasarkan 'kontribusi' (rasio yang bobotnya
+                       saling coret). Kriteria "menekan" diurutkan dari
+                       dampak TERBESAR (paling merugikan secara nyata ke
+                       skor akhir); kriteria "mendukung" dari dampak
+                       TERKECIL (posisinya paling dekat ke solusi ideal
+                       positif secara nyata). */
                     $kandidatMenekan   = array_values($kandidatMenekan);
                     $kandidatMendukung = array_values($kandidatMendukung);
 
@@ -751,6 +785,10 @@ if (strtolower($status) == 'kritis') {
                     $menekan   = array_slice($kandidatMenekan, 0, $jumlahSorotMenekan);
                     $mendukung = array_slice($kandidatMendukung, 0, $jumlahSorotMendukung);
 
+                    /* PERBAIKAN: daftar kriteria ditampilkan MENURUN
+                       (satu baris per kriteria) memakai <ul><li>,
+                       bukan disatukan jadi satu kalimat panjang -
+                       supaya lebih mudah dibaca cepat oleh Dosen PA. */
                     $formatDaftarList = function ($daftar) {
                         $items = array_map(function ($k) {
                             $nilai = is_numeric($k['nilai_asli'])
@@ -771,9 +809,16 @@ if (strtolower($status) == 'kritis') {
                     }
                 }
 
-                /*prediksi predikat Cumlaude hanya relevan
+                /* PERBAIKAN: kesimpulan indikasi DO dan kesimpulan
+                   predikat (cumlaude) DIGABUNG ke dalam paragraf
+                   Keterangan ini - sebelumnya indikasi DO berdiri
+                   sendiri sebagai kotak terpisah dan predikat
+                   cumlaude tidak pernah ditampilkan secara eksplisit
+                   sama sekali, sehingga kesimpulannya kurang jelas. */
+                /* PERBAIKAN: prediksi predikat Cumlaude hanya relevan
                    ditampilkan untuk mahasiswa berkategori "Sangat Baik"
-                   atau "Aman" */
+                   atau "Aman" - untuk kategori Waspada/Kritis, cumlaude
+                   bukan hal yang relevan untuk dibahas saat ini. */
                 $tampilkanPredikat = in_array($statusLabel, ['Sangat Baik', 'Aman'], true);
 
                 $keterangan = sprintf(

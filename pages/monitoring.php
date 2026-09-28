@@ -49,7 +49,9 @@ if ($sort == 'ipk') {
 } elseif ($sort == 'status') {
     $orderBy = "h.status_early_warning ASC";
 } elseif ($sort == 'angkatan') {
-    $orderBy = "m.angkatan DESC";
+    /* Format NIM F1DXXXYYY: XXX = angkatan, YYY = nomor urut.
+       Diurutkan dari angkatan terkecil, lalu NIM terkecil. */
+    $orderBy = "CAST(SUBSTRING(d.nim, 4, 3) AS UNSIGNED) ASC, CAST(SUBSTRING(d.nim, 7, 3) AS UNSIGNED) ASC, d.nim ASC";
 }
 
 $query = mysqli_query($conn, "
@@ -234,7 +236,12 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
 </div>
 
 <script>
-/* tabel dengan scroll horizontal selalu, mulai dari posisi PALING KIRI saat halaman dimuat*/
+/* PERBAIKAN: pastikan tabel dengan scroll horizontal selalu
+   mulai dari posisi PALING KIRI saat halaman dimuat - beberapa
+   browser (terutama saat kembali dari halaman lain via tombol
+   back, atau reload) bisa mempertahankan posisi scroll lama
+   dari kunjungan sebelumnya, membuat kolom pertama (Ranking,
+   NIM) tersembunyi di luar area terlihat. */
 document.querySelectorAll('.table-scroll-wrapper').forEach(function (el) {
     el.scrollLeft = 0;
 });

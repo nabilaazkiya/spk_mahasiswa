@@ -1,4 +1,5 @@
 <?php
+// Form edit data akun user yang sudah ada.
 session_start();
 include "../config/database.php";
 

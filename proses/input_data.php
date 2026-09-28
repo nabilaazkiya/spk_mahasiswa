@@ -427,14 +427,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $absensi            = $parseNumerikTerlacak($baris['absensi'], 0, $nim, 'Absensi');
         $sks_nilai_kurang_b = $parseNumerikTerlacak($baris['sks_nilai_kurang_b'], 0, $nim, 'SKS Nilai Kurang B');
 
+        /* Rumus wajib: Semester = 14 - Sisa Masa Studi.
+           Divalidasi supaya tidak menghasilkan semester tidak valid
+           (0 atau negatif) akibat data Sisa Masa Studi yang aneh -
+           kalau itu terjadi, baris ditandai gagal (bukan dipaksakan
+           nilai yang salah ke database), sama seperti penanganan
+           format NIM/angkatan yang tidak valid di bawah. */
         $semester = 14 - $sisa_masa_studi;
         if ($semester < 1) {
             $gagal++;
             continue;
         }
 
-        $duaDigitTahun = substr($nim, 4, 2);
-        $angkatan = ctype_digit($duaDigitTahun) ? '20' . $duaDigitTahun : null;
+        /* PERBAIKAN BUG: sebelumnya angkatan diambil dari
+           substr($nim, 0, 4) yang menghasilkan teks seperti
+           "F1D0" (bukan tahun). Berdasarkan format NIM aktual
+           (contoh: F1D022006 -> angkatan 2022), tahun angkatan
+           ada di 3 digit setelah F1D (index 3-5).
+           Kolom mahasiswa.angkatan bertipe YEAR(4) NOT NULL,
+           sehingga nilai teks yang salah sebelumnya berisiko
+           gagal/ternormalisasi keliru oleh MySQL. */
+        /* Format NIM F1DXXXYYY: XXX (3 digit) = angkatan, mis. 022 -> 2022 */
+        $kodeAngkatan = substr($nim, 3, 3);
+        $angkatan = ctype_digit($kodeAngkatan) ? (string) (2000 + (int) $kodeAngkatan) : null;
 
         /* Kolom mahasiswa.angkatan bertipe YEAR(4) NOT NULL.
            Jika format NIM tidak sesuai pola yang dikenali,
@@ -491,6 +506,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         /* 2. INSERT (semester baru = simpan sebagai histori baru)
            atau UPDATE (semester yang SAMA diimpor ulang = anggap
            koreksi data, bukan duplikat histori) tabel data_akademik.
+
+           PERBAIKAN PENTING: sebelumnya pengecekan hanya
+           berdasarkan `nim`, sehingga import periode baru akan
+           MENIMPA data semester sebelumnya - riwayat akademik
+           mahasiswa (dipakai untuk grafik tren IPK per semester
+           di detail_mahasiswa.php) jadi selalu hilang. Sekarang
            kunci pengecekan adalah (nim, semester), sehingga tiap
            semester tersimpan sebagai baris terpisah & permanen. */
         $stmtCek = mysqli_prepare($conn, "SELECT id_data FROM data_akademik WHERE nim = ? AND semester = ?");

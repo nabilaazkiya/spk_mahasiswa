@@ -1,4 +1,5 @@
 <?php
+// Dashboard untuk role Dosen PA: ringkasan mahasiswa bimbingannya sendiri.
 session_start();
 include "../config/database.php";
 
@@ -68,7 +69,7 @@ $scatterData = ambilDataScatter($conn, "AND m.id_user = '$idDpa'");
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="../assets/js/scatter_chart.js?v=2"></script>
+    <script src="../assets/js/scatter_chart.js?v=4"></script>
 
 </head>
 <body>
