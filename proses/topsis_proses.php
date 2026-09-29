@@ -627,12 +627,6 @@ if (isset($_SESSION['id_user'])) {
     ");
 }
 
-/* =============================================
-   13. LANJUT KE PROSES SAW
-   (Jika dipanggil otomatis via chain dari
-   input_data.php, biarkan caller yang
-   melanjutkan ke saw_proses.php)
-   ============================================= */
 if (!defined('SPK_CHAIN')) {
     header("Location: saw_proses.php");
     exit;

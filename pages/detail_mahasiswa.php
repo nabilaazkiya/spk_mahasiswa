@@ -15,9 +15,6 @@ if ($nim == '') {
     exit;
 }
 
-/* PERBAIKAN (paritas Admin = Kaprodi): admin diperlakukan
-   sama seperti kaprodi di halaman ini - kembali ke monitoring.php,
-   dashboard_admin.php, dan tidak dibatasi WHERE per-DPA. */
 $backPage      = 'monitoring.php';
 $dashboardPage = ($_SESSION['role'] == 'dpa') ? 'dashboard_dpa.php' : (($_SESSION['role'] == 'admin') ? 'dashboard_admin.php' : 'dashboard_kaprodi.php');
 $roleLabel     = ($_SESSION['role'] == 'dpa') ? 'Dosen PA' : (($_SESSION['role'] == 'admin') ? 'Admin' : 'Kaprodi');
@@ -64,11 +61,6 @@ if (!$data) {
 
 /* ═══════════════════════════════════════════════════════
    ANALISIS CUTI & INDIKASI DO
-   PERBAIKAN: dipindah ke sini (sebelum kotak "Kesimpulan
-   Evaluasi Akademik" dibuat) supaya kesimpulan indikasi DO
-   bisa DIGABUNG ke dalam satu paragraf "Keterangan" pada
-   kotak Kesimpulan Evaluasi Akademik, bukan berdiri sendiri
-   sebagai kotak terpisah yang judul & maksudnya kurang jelas.
    =========================================================== */
 $riwayatLengkapQuery = mysqli_query($conn, "
     SELECT semester, status_sia, ipk, sks_lulus, sks_diambil

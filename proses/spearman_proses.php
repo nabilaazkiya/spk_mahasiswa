@@ -74,10 +74,6 @@ if (isset($_SESSION['id_user'])) {
     ");
 }
 
-/* Jika dirantai dari input_data.php (proses import oleh admin),
-   JANGAN redirect ke monitoring.php karena halaman itu
-   khusus untuk role 'kaprodi'. Biarkan input_data.php
-   yang menentukan halaman tujuan akhir. */
 if (!defined('SPK_CHAIN')) {
     header("Location: ../pages/monitoring.php");
     exit;

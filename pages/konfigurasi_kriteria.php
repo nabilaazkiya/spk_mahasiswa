@@ -100,17 +100,6 @@ if ($totalRataRata > 0) {
             ");
         }
     }
-
-    /* PERBAIKAN: sinkronisasi sebelumnya hanya UPSERT, tidak pernah
-       menonaktifkan kriteria yang sudah dihapus dari CSV (misal C11
-       Semester, yang sekarang dihilangkan sebagai kriteria TOPSIS/SAW
-       sesuai permintaan). Tanpa langkah ini, baris lama di tabel
-       kriteria akan tetap punya kolom_data terisi dan tetap ikut
-       dihitung TOPSIS/SAW walau sudah dihapus dari data_delphi.csv.
-       Baris & bobot historisnya TETAP disimpan (tidak dihapus / tidak
-       hilang datanya) untuk keperluan dokumentasi skripsi - yang
-       dikosongkan hanya kolom_data-nya, supaya otomatis dikecualikan
-       dari query TOPSIS/SAW (WHERE kolom_data IS NOT NULL AND != ''). */
     $kodeAktifSaatIni = array_map(function ($item) use ($conn) {
         return mysqli_real_escape_string($conn, $item['kode']);
     }, $dataDelphi);
@@ -126,18 +115,6 @@ if ($totalRataRata > 0) {
     }
 }
 
-
-/* AMBIL KRITERIA BERDASARKAN BOBOT DELPHI TERTINGGI
-   PERBAIKAN: sebelumnya query ini mengambil SEMUA baris tabel
-   kriteria tanpa filter, sehingga kriteria yang sudah dinonaktifkan
-   (kolom_data dikosongkan, misal Semester/C11 yang dihapus dari
-   data_delphi.csv) tetap ikut ditampilkan di tabel DAN ikut
-   dijumlahkan ke Total Bobot - membuat totalnya melebihi 100%.
-   Sekarang disaring memakai filter yang SAMA dengan yang dipakai
-   TOPSIS/SAW (kolom_data terisi), supaya tabel ini betul-betul
-   mencerminkan kriteria yang benar-benar dipakai dalam perhitungan.
-   Baris nonaktif tetap ada di database untuk dokumentasi, hanya
-   tidak ditampilkan di sini. */
 $kriteria = mysqli_query($conn, "
     SELECT * FROM kriteria
     WHERE kolom_data IS NOT NULL AND kolom_data != ''
@@ -261,9 +238,6 @@ $totalKriteria = mysqli_num_rows($kriteria);
                 <div>
                     <?php
                         $persenBobot = round($totalBobot * 100, 2);
-                        /* PERBAIKAN: kalau hasilnya bulat (mis. 100), tidak perlu
-                           tampil ".00" di belakangnya - baru pakai 2 desimal kalau
-                           memang ada pecahannya (mis. 99.87%). */
                         $persenBobotText = ($persenBobot == floor($persenBobot))
                             ? number_format($persenBobot, 0)
                             : number_format($persenBobot, 2);

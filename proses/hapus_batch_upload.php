@@ -3,11 +3,6 @@
 session_start();
 include "../config/database.php";
 
-/* =============================================
-   PROTEKSI AKSES - hanya admin yang boleh
-   menghapus batch upload (aksi destruktif: ikut
-   menghapus data akademik terkait).
-   ============================================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../login.php");
     exit;
@@ -27,17 +22,6 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $waktuUpload)) {
     exit;
 }
 
-/* =============================================
-   Grup "batch upload" ditentukan dari kesamaan
-   tanggal_upload persis di riwayat_akademik (satu
-   waktu yang sama dipakai untuk semua baris dalam
-   satu kali proses import - lihat $waktuImpor di
-   proses/input_data.php). Menghapus batch berarti
-   menghapus SEMUA baris data_akademik yang muncul
-   di riwayat_akademik dengan tanggal_upload ini,
-   sesuai keputusan user (dokumen dihapus = data
-   akademik yang berasal darinya ikut terhapus).
-   ============================================= */
 mysqli_begin_transaction($conn);
 
 try {
@@ -91,9 +75,6 @@ try {
     exit;
 }
 
-/* PERBAIKAN: rerun TOPSIS/SAW/Spearman setelah data akademik
-   berubah (dihapus), supaya ranking di dashboard tidak lagi
-   menyertakan mahasiswa yang datanya baru saja dihapus. */
 define('SPK_CHAIN', true);
 require '../proses/topsis_proses.php';
 require '../proses/saw_proses.php';

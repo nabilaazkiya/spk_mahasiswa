@@ -32,11 +32,6 @@ if (mysqli_num_rows($cekUsername) > 0) {
     exit;
 }
 
-/* PERBAIKAN: cek nama lengkap duplikat HANYA DI ROLE YANG
-   SAMA (lihat penjelasan lengkap di tambah_user_proses.php) -
-   satu orang boleh punya akun Kaprodi + DPA sekaligus dengan
-   nama sama, itu bukan masalah. Mengecualikan akun yang
-   sedang diedit sendiri via id_user != $id_user. */
 $namaLengkapTrim = trim($_POST['nama_lengkap']);
 $cekNama = mysqli_query($conn, "
     SELECT nama_lengkap, role FROM user

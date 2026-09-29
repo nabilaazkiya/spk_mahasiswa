@@ -8,16 +8,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-/* status_sia_mahasiswa DIHAPUS (permintaan user) - status_sia
-   (aktif/cuti/do/-) sekarang satu-satunya sumber kebenaran status
-   mahasiswa, dipakai langsung di badge tabel di bawah. */
-
-/* =============================================
-   AUTO-FIX: REFRESH VIEW data_akademik_terbaru
-   Dibuat ulang dengan CREATE OR REPLACE supaya kolom
-   terbaru di data_akademik selalu ikut masuk ke VIEW.
-   Aman dijalankan berkali-kali (tidak merusak data).
-   ============================================= */
 mysqli_query($conn, "
     CREATE OR REPLACE VIEW data_akademik_terbaru AS
     SELECT da.*
@@ -72,11 +62,6 @@ $userQuery = mysqli_query($conn, "SELECT * FROM user $whereUser ORDER BY id_user
 
 $akademikQuery = mysqli_query($conn, "SELECT * FROM data_akademik_terbaru $whereAkademik ORDER BY id_data DESC");
 
-/* FITUR BARU (tanpa tabel baru): daftar batch upload, dikelompokkan
-   dari kesamaan tanggal_upload persis di riwayat_akademik (satu
-   waktu yang sama dipakai untuk semua baris dalam satu kali proses
-   import - lihat $waktuImpor di proses/input_data.php), untuk modal
-   Lihat/Hapus Data Upload. */
 $daftarBatchUpload = [];
 /* Pastikan kolom nama_file ada (batch lama akan tampil "-") */
 $cekKolomNamaFile = mysqli_query($conn, "SHOW COLUMNS FROM riwayat_akademik LIKE 'nama_file'");

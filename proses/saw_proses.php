@@ -18,10 +18,6 @@ mysqli_query($conn, "DELETE FROM ranking_saw");
 /* AMBIL DATA AKADEMIK TERBARU PER MAHASISWA */
 $dataMahasiswa = [];
 
-/* PERBAIKAN BUG: "terbaru" ditentukan dari nilai semester
-   TERBESAR milik NIM (bukan MAX(id_data)), supaya upload data
-   semester lama/sebelumnya tidak keliru dianggap sebagai
-   snapshot terbaru mahasiswa. */
 $qMahasiswa = mysqli_query($conn, "
     SELECT da.*
     FROM data_akademik da
@@ -116,13 +112,7 @@ function ambilNilaiSaw($mhs, $kolomData)
         return 0;
     }
 
-    /* DISAMAKAN DENGAN TOPSIS (topsis_proses.php::ambilNilaiTopsis):
-       Jalur Masuk 5 tingkat sesuai urutan prioritas yang ditetapkan
-       (dari tertinggi ke terendah): Beasiswa Mahasiswa Internasional >
-       SNMPTN/SNBP > SBMPTN/SNBT > Mandiri > Mahasiswa Pindahan.
-       Sebelumnya SAW hanya punya 4 tingkat dan tidak mengenali
-       Beasiswa Internasional sama sekali (jatuh ke skor terendah),
-       sehingga hasil SAW dan TOPSIS bisa berbeda untuk kriteria ini. */
+  
     if ($kolomData == 'jalur_masuk') {
         $nilaiLower = strtolower(trim($nilai));
 
@@ -243,15 +233,6 @@ foreach ($dataMahasiswa as $mhs) {
                 $normal = $nilai / $maxMin[$idKriteria]['max'];
             }
         } else {
-            /*
-                Cost:
-                semakin kecil semakin baik.
-                Rumus: min / nilai
-
-                Jika nilai 0 dan kriteria cost,
-                maka mahasiswa mendapat nilai normalisasi terbaik = 1.
-                Contoh: jumlah mengulang = 0, absensi = 0.
-            */
             if ($nilai == 0) {
                 $normal = 1;
             } else {

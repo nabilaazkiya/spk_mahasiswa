@@ -38,15 +38,6 @@ if (mysqli_num_rows($cek) > 0) {
     exit;
 }
 
-/* PERBAIKAN: cek nama lengkap duplikat HANYA DI ROLE YANG
-   SAMA - bukan lintas semua role. Satu orang yang sama boleh
-   punya 2 akun berbeda (misal Kaprodi + DPA sekaligus), karena
-   data yang ditampilkan ke masing-masing role memang berbeda.
-   Risiko ambigu (sinkronkanMahasiswaDpa() salah sambung) HANYA
-   terjadi kalau ada 2 akun DENGAN ROLE SAMA (khususnya 2 akun
-   'dpa') bernama identik - karena fungsi sync itu sendiri sudah
-   memfilter role='dpa', jadi duplikat lintas role tidak
-   berisiko sama sekali. */
 $namaLengkapTrim = trim($_POST['nama_lengkap']);
 $cekNama = mysqli_query($conn, "
     SELECT nama_lengkap, role FROM user
@@ -95,20 +86,11 @@ if ($query) {
 
     $idAdmin = $_SESSION['id_user'];
 
-    /* PERBAIKAN BUG: setelah akun DPA baru dibuat, langsung
-       coba hubungkan ke mahasiswa yang datanya sudah lebih
-       dulu diimpor (lihat includes/dpa_sync.php untuk detail
-       akar masalahnya). Tanpa ini, dashboard DPA yang baru
-       dibuat akan selalu menampilkan 0 data. */
     $jumlahTerhubung = 0;
 
     if ($role === 'dpa') {
         $idUserBaru = mysqli_insert_id($conn);
-        /* Pakai nilai mentah dari $_POST (bukan $nama_lengkap yang
-           sudah di-escape untuk query manual di atas), karena
-           sinkronkanMahasiswaDpa() pakai prepared statement -
-           kalau dikasih string yang sudah di-escape, akan
-           ter-escape dua kali dan pencocokan nama jadi salah. */
+
         $jumlahTerhubung = sinkronkanMahasiswaDpa($conn, $idUserBaru, trim($_POST['nama_lengkap']));
     }
 

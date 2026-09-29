@@ -15,12 +15,6 @@ $sort = isset($_GET['sort']) ? $_GET['sort'] : 'ranking';
 
 $where = "WHERE 1=1";
 
-/* PERBAIKAN (gabungan monitoring.php + monitoring_dpa.php):
-   DPA hanya boleh melihat mahasiswa bimbingannya sendiri,
-   Kaprodi & Admin melihat SELURUH mahasiswa. Sebelumnya ini
-   2 file terpisah dengan kode hampir identik (rawan tidak
-   sinkron kalau ada perbaikan di satu file tapi lupa di
-   file lainnya - seperti yang sempat terjadi). */
 if ($role === 'dpa') {
     $idDpa = mysqli_real_escape_string($conn, $_SESSION['id_user']);
     $where .= " AND m.id_user = '$idDpa'";
@@ -233,12 +227,8 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
 </div>
 
 <script>
-/* PERBAIKAN: pastikan tabel dengan scroll horizontal selalu
-   mulai dari posisi PALING KIRI saat halaman dimuat - beberapa
-   browser (terutama saat kembali dari halaman lain via tombol
-   back, atau reload) bisa mempertahankan posisi scroll lama
-   dari kunjungan sebelumnya, membuat kolom pertama (Ranking,
-   NIM) tersembunyi di luar area terlihat. */
+/* pastikan tabel dengan scroll horizontal selalu
+   mulai dari posisi PALING KIRI saat halaman dimuat*/
 document.querySelectorAll('.table-scroll-wrapper').forEach(function (el) {
     el.scrollLeft = 0;
 });

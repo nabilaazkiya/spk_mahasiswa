@@ -28,10 +28,6 @@ $totalKriteria = mysqli_fetch_assoc(mysqli_query($conn, "
     WHERE kolom_data IS NOT NULL AND kolom_data != ''
 "));
 
-/* PERBAIKAN (paritas Admin = Kaprodi, sesuai hasil UAT):
-   query kategori & scatter chart di bawah ini SAMA PERSIS
-   seperti yang dipakai di dashboard_kaprodi.php - supaya
-   Admin bisa ikut memantau tanpa perlu login sebagai Kaprodi. */
 $kritis = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) AS total 
     FROM hasil_evaluasi_terbaru 
