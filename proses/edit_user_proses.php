@@ -82,11 +82,6 @@ if ($query) {
 
     $idAdmin = $_SESSION['id_user'];
 
-    /* PERBAIKAN BUG: kalau nama_lengkap seorang DPA diperbaiki
-       (misal ditambah gelar supaya cocok dengan teks "Dosen PA"
-       di file yang diimpor), sinkronkan ulang link mahasiswa->DPA.
-       Sebelumnya link ini tidak pernah disegarkan saat edit,
-       sehingga koreksi nama tidak berdampak apapun ke dashboard DPA. */
     $jumlahTerhubung = 0;
 
     if ($role === 'dpa') {

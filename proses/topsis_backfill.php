@@ -211,9 +211,6 @@ function jalankanTopsisSatuSemester($conn, $semester, $dataKriteria)
         return ($a['nilai_preferensi'] < $b['nilai_preferensi']) ? 1 : -1;
     });
 
-    /* 7. UPSERT ke ranking_topsis & hasil_evaluasi,
-       periode_evaluasi = "Semester XX" (padding 2 digit,
-       konsisten dengan proses/topsis_proses.php). */
     $periode = sprintf('Semester %02d', $semester);
     $ranking = 1;
     $gagal   = 0;

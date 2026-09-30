@@ -26,26 +26,12 @@ if ($rowKolomSks && strtoupper($rowKolomSks['Null']) === 'NO') {
     );
 }
 
-/* =============================================
-   FUNGSI BANTUAN
-   ============================================= */
-
-/**
- * Normalisasi nama header CSV:
- * rapikan spasi ganda dan lowercase.
- */
 function normalisasiHeader($header)
 {
     $header = preg_replace('/\s+/', ' ', (string) $header);
     return strtolower(trim($header));
 }
 
-/**
- * Amankan nilai numerik dari CSV.
- *
- * Jika nilai kosong, "-", atau bukan angka,
- * maka menggunakan nilai default.
- */
 function parseNumerik($nilai, $default = 0)
 {
     $nilai = trim((string) $nilai);
@@ -61,18 +47,6 @@ function parseNumerik($nilai, $default = 0)
     return $nilai + 0;
 }
 
-/**
- * Validasi khusus IPK.
- *
- * IPK harus berada pada rentang 0 sampai 4.
- *
- * Mengembalikan:
- * - true  jika valid
- * - false jika tidak valid
- *
- * Nilai kosong atau "-" tetap diperlakukan seperti
- * perilaku lama, yaitu akan menggunakan default 0.
- */
 function validasiIPK($nilai)
 {
     $nilai = trim((string) $nilai);
