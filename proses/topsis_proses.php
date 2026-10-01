@@ -140,9 +140,6 @@ function ambilNilaiTopsis($mhs, $kolomData)
         } elseif (strpos($nilaiLower, 'pindahan') !== false) {
             return 1;
         } else {
-            /* Jalur tidak dikenali - taruh di tingkat terendah
-               daripada diam-diam dianggap setara "Pindahan",
-               supaya kalau ada data ganjil tetap konservatif. */
             return 1;
         }
     }
@@ -436,12 +433,6 @@ foreach ($hasilTopsis as $hasil) {
        0.26 - 0.50 = Waspada
        0.51 - 0.75 = Aman
        0.76 - 1.00 = Sangat Baik
-
-       PERBAIKAN: upsert per (nim, periode_evaluasi), sama
-       seperti ranking_topsis di atas - histori periode lain
-       tidak lagi terhapus. Loop ini juga hanya berjalan kalau
-       ADA PERUBAHAN dibanding periode terakhir (flag yang
-       sama dengan ranking_topsis di atas).
    ============================================= */
 if ($adaPerubahanDibandingPeriodeTerakhir) {
 foreach ($hasilTopsis as $hasil) {
