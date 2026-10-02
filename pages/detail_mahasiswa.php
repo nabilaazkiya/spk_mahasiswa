@@ -299,7 +299,7 @@ if (strtolower($status) == 'kritis') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detail Mahasiswa</title>
-    <link rel="stylesheet" href="../assets/css/style.css?v=12">
+    <link rel="stylesheet" href="../assets/css/style.css?v=13">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -377,39 +377,40 @@ if (strtolower($status) == 'kritis') {
             </div>
 
             <div class="detail-card">
-                <h4 class="info-clickable-text" onclick="showInfoModal('preferensi_model')">Preferensi Model</h4>
-
+                <!-- Fokus utama kartu: skor TOPSIS (ukuran angka utama, sama dengan kartu IPK/SKS) -->
                 <p>
-                    <?php 
-                    echo $spearman 
-                        ? number_format($spearman['rs'], 4) 
-                        : '-'; 
-                    ?>
-                </p>
-
-                <small>
-                    <?php echo $spearman['preferensi_model'] ?? 'Belum diuji'; ?>
-                    <br><br>
-
-                    Nilai mahasiswa ini:
-                    <br>
-
-                    TOPSIS:
                     <?php
                     echo isset($data['nilai_topsis'])
                         ? number_format($data['nilai_topsis'], 4)
                         : '-';
                     ?>
-
-                    <br>
-
-                    SAW:
-                    <?php
-                    echo isset($data['nilai_saw'])
-                        ? number_format($data['nilai_saw'], 4)
-                        : '-';
-                    ?>
+                </p>
+                <small class="skor-topsis-label">
+                    <span class="info-clickable-text" onclick="showInfoModal('nilai_preferensi_topsis')">Skor TOPSIS</span>
                 </small>
+
+                <!-- Pendamping: nilai SAW (kecil) lalu Preferensi Model (sedikit lebih besar + tebal, tetap di bawah TOPSIS) -->
+                <div class="skor-pendamping">
+                    <div class="skor-saw">
+                        SAW:
+                        <?php
+                        echo isset($data['nilai_saw'])
+                            ? number_format($data['nilai_saw'], 4)
+                            : '-';
+                        ?>
+                    </div>
+
+                    <div class="skor-preferensi-model">
+                        <span class="info-clickable-text" onclick="showInfoModal('preferensi_model')">Preferensi Model</span>:
+                        <?php
+                        echo $spearman
+                            ? number_format($spearman['rs'], 4)
+                            : '-';
+                        ?>
+                    </div>
+
+                    <small><?php echo $spearman['preferensi_model'] ?? 'Belum diuji'; ?></small>
+                </div>
             </div>
 
         </section>

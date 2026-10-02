@@ -13,6 +13,35 @@ $role = $_SESSION['role'];
 $keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 $sort = isset($_GET['sort']) ? $_GET['sort'] : 'ranking';
 
+/* Dropdown filter Angkatan: pilihannya diambil dari data yang sudah
+   diinput admin (kolom mahasiswa.angkatan, terisi otomatis dari NIM saat
+   upload). Hanya angkatan yang punya data akademik yang ditampilkan.
+   Role DPA hanya melihat angkatan mahasiswa bimbingannya sendiri. */
+$daftarAngkatan = [];
+$whereAngkatan  = "m.angkatan IS NOT NULL";
+if ($role === 'dpa') {
+    $whereAngkatan .= " AND m.id_user = '" . mysqli_real_escape_string($conn, $_SESSION['id_user']) . "'";
+}
+
+$qAngkatan = mysqli_query($conn, "
+    SELECT DISTINCT m.angkatan
+    FROM data_akademik_terbaru d
+    INNER JOIN mahasiswa m ON d.nim = m.nim
+    WHERE $whereAngkatan
+    ORDER BY m.angkatan ASC
+");
+if ($qAngkatan) {
+    while ($ra = mysqli_fetch_assoc($qAngkatan)) {
+        $daftarAngkatan[] = (int) $ra['angkatan'];
+    }
+}
+
+/* 0 = Semua Angkatan. Nilai di luar daftar diabaikan. */
+$angkatanDipilih = (isset($_GET['angkatan']) && is_scalar($_GET['angkatan'])) ? (int) $_GET['angkatan'] : 0;
+if (!in_array($angkatanDipilih, $daftarAngkatan, true)) {
+    $angkatanDipilih = 0;
+}
+
 $where = "WHERE 1=1";
 
 if ($role === 'dpa') {
@@ -32,6 +61,10 @@ if ($keyword != '') {
         OR r.nilai_preferensi LIKE '%$keywordSafe%'
         OR h.status_early_warning LIKE '%$keywordSafe%'
     )";
+}
+
+if ($angkatanDipilih > 0) {
+    $where .= " AND m.angkatan = " . $angkatanDipilih;
 }
 
 $orderBy = "r.ranking ASC";
@@ -81,7 +114,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Mahasiswa</title>
 
-    <link rel="stylesheet" href="../assets/css/style.css?v=12">
+    <link rel="stylesheet" href="../assets/css/style.css?v=13">
 </head>
 <body>
 
@@ -126,6 +159,7 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
         </section>
 
         <form method="GET" action="" class="monitor-filter-card">
+            <div class="filter-left">
             <div class="sort-area">
                 <span>Urutkan Berdasarkan</span>
 
@@ -137,6 +171,20 @@ $judulHalaman  = ($role === 'dpa') ? 'Mahasiswa Bimbingan' : 'Monitoring Seluruh
                         <!-- <option value="status" <?php if ($sort == 'status') echo 'selected'; ?>>Status</option> -->
                     </select>
                 </div>
+            </div>
+
+            <div class="sort-area">
+                <span>Angkatan</span>
+
+                <div class="sort-select-wrapper">
+                    <select name="angkatan" class="sort-select sort-select-angkatan" onchange="this.form.submit()">
+                        <option value="0">Semua Angkatan</option>
+                        <?php foreach ($daftarAngkatan as $thn) { ?>
+                        <option value="<?php echo $thn; ?>" <?php if ($angkatanDipilih === $thn) echo 'selected'; ?>><?php echo $thn; ?></option>
+                        <?php } ?>
+                    </select>
+                </div>
+            </div>
             </div>
 
             <div class="search-area">

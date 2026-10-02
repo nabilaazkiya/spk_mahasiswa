@@ -162,7 +162,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
                         <option value="admin">Admin</option>
                         <option value="kaprodi">Kaprodi</option>
                         <option value="dpa">DPA</option>
-                        <option value="mahasiswa">Mahasiswa</option>
                     </select>
                 </div>
 
